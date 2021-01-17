@@ -35,7 +35,6 @@ setup_requires = []
 tests_require = []
 install_requires.extend([
     'pandas',
-    'pygraphviz',
     'pandas_datareader',
     'matplotlib',
     'seaborn',
