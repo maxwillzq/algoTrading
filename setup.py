@@ -39,7 +39,6 @@ install_requires.extend([
     'matplotlib',
     'seaborn',
     'datetime',
-    'logging',
     'numpy'
 ])
 
