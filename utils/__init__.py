@@ -15,3 +15,6 @@ def read_stock_data_to_df(stock_name, start = None, end = None):
   df = pd.read_csv(stock_name + '.csv')
   return df
 
+import .plotting
+  
+

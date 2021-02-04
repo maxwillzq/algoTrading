@@ -52,7 +52,7 @@ tests_require.append('nbval')
 tests_require.append('tabulate')
 
 setuptools.setup(
-    name="algoTrading", # Replace with your own username
+    name="algotrading", # Replace with your own username
     version=VersionInfo.version,
     author="John",
     author_email="qzhang03022@gmail.com",
