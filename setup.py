@@ -27,7 +27,7 @@ with open(os.path.join(TOP_DIR, 'VERSION_NUMBER')) as version_file:
 ################################################################################
 # Package description
 ################################################################################
-with open("README.md", "r", encoding="utf-8") as fh:
+with open("README.md", "r") as fh:
     long_description = fh.read()
 
 install_requires = []
