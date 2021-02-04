@@ -2,16 +2,31 @@ import pandas as pd
 import pandas_datareader.data as web
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import linregress
 import datetime as dt
 import logging
 import numpy as np
 logger = logging.getLogger(__name__)
 
+def read_stock_data_to_df(stock_name, start = None, end = None):
+  """Read Stock Data from Yahoo Finance
+  """
+  if end is None:
+    end = dt.datetime.now()
+  logger.info(f"today is {end}")
+  if not start:
+    start = dt.datetime(end.year-2, end.month, end.day)
+  df = web.DataReader(stock_name, 'yahoo', start, end)
+  df.to_csv(stock_name + '.csv')
+  df = pd.read_csv(stock_name + '.csv')
+  return df
+  
 def draw_regular_plot(df, stock_name=None, param={}):
   plt.figure(figsize=(12,9))
   top = plt.subplot2grid((12,9), (0, 0), rowspan=10, colspan=9)
   bottom = plt.subplot2grid((12,9), (10,0), rowspan=2, colspan=9)
   top.plot(df.index, df['Adj Close'], color='blue') #df.index gives the dates
+  top.grid()
   bottom.bar(df.index, df['Volume'])
   # set the labels
   top.axes.get_xaxis().set_visible(False)
@@ -30,6 +45,7 @@ def draw_regular_plot(df, stock_name=None, param={}):
     print("Linear" + str(data_range) + " = " + str(slope))
     top.plot(x, np.e ** (intercept + slope*x), label="Linear" + str(data_range))
   legend = top.legend(loc='upper left', shadow=True, fontsize='x-large')
+  plt.show()
 
 def draw_density_plot(df, param = {}):
   plt.figure(figsize=(12,9))
@@ -38,10 +54,11 @@ def draw_density_plot(df, param = {}):
   rmax = max(df['Adj Close']) * 1.1
   step = param.get("step", 5)
   plt.yticks(np.arange(rmin, rmax, step))
+  plt.grid()
 
 def draw_moving_average_plot(df, param={}):
   # simple moving averages
-  lists = [20, 50, 200]
+  lists = [20, 60, 120]
   if "list" in param:
     lists = param["list"]
   args = {}
@@ -55,6 +72,7 @@ def draw_moving_average_plot(df, param={}):
   fig = plt.gcf()
   fig.set_size_inches(12, 9)
   #fig.savefig('AAPL_plot.png', dpi=300)
+  plt.grid()
   plt.show()
   print(df.tail())
 
@@ -65,4 +83,33 @@ def draw_price_to_ma_distance(df, stock_name, param={}):
   df['MA' + str(ma)] = df['Adj Close'].rolling(ma).mean()
   plt.plot(df.index, df['Adj Close'] - df['MA' + str(ma)])
   plt.title(f"{stock_name} Price - MA{ma}" )
+  plt.grid()
   plt.show()
+
+def indicator_1(df, param={}):
+  """
+  The discount rate if use MA price as baseline
+  """
+  MA = 50
+  if 'MA' in param:
+    MA = param['MA']
+  result =  -(df['Adj Close'] - df['Adj Close'].rolling(MA).mean())/df['Adj Close'] * 100
+  return result
+
+def indicator_2(df,param={}):
+  """
+  The potential gain rate after 1 year use linear model
+  """
+
+  def momentum(closes):
+      returns = np.log(closes)
+      x = np.arange(len(returns))
+      slope, _, rvalue, _, _ = linregress(x, returns)
+      return ((1 + slope) ** 252) * (rvalue ** 2)  # annualize slope and multiply by R^2
+  
+  MA = 90
+  if 'MA' in param:
+    MA = param['MA']
+  result = (df.rolling(MA)['Adj Close'].apply(momentum, raw=False) - 1)
+  #print("result = ", result)
+  return result
