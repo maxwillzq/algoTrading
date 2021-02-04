@@ -20,7 +20,7 @@ def read_stock_data_to_df(stock_name, start = None, end = None):
   df.to_csv(stock_name + '.csv')
   df = pd.read_csv(stock_name + '.csv')
   return df
-  
+
 def draw_regular_plot(df, stock_name=None, param={}):
   plt.figure(figsize=(12,9))
   top = plt.subplot2grid((12,9), (0, 0), rowspan=10, colspan=9)
@@ -56,7 +56,7 @@ def draw_density_plot(df, param = {}):
   plt.yticks(np.arange(rmin, rmax, step))
   plt.grid()
 
-def draw_moving_average_plot(df, param={}):
+def draw_moving_average_plot(df, stock_name, param={}):
   # simple moving averages
   lists = [20, 60, 120]
   if "list" in param:
