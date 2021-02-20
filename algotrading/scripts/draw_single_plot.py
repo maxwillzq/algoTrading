@@ -20,20 +20,24 @@ logger = logging.getLogger(__name__)
 end = dt.datetime.now()
 start = end - dt.timedelta(days=365)
 #start = dt.datetime(end.year - 1, end.month, end.day)
+shuping_holding_list = ['ADBE', 'U', 'AMC', 'BABA', 'FB', 'COST'] 
+etf_name_list = ["QQQ", "SPY", "JETS", "ARKK"]
+industry_stock_list = ["MMM",  "C", "COST"]
+semi_stock_list = ['TSM', 'ASML', 'AMAT']
+fangman_stock_list = ["BABA", "FB", "AMZN", "AAPL", "GOOG", "NFLX", "AMD", "MSFT"]
 
-stock_name_list = [
-    "QQQ", "SPY", "JETS", "ARKK", # ETF
-    "SHOP", "BIDU", "ADBE", "U", "AMC",  # Shuping list
-    "MMM",  "C", "COST", # industry stock
-    "TSM", "ASML", "AMAT", # Semi
-    "BABA", "FB", "AMZN", "AAPL", "GOOG", "NFLX", "AMD", "MSFT", # FANGMAN
-    ]
+stock_name_list = []
+stock_name_list.extend(shuping_holding_list)
+#stock_name_list.extend(etf_name_list)
+#stock_name_list.extend(industry_stock_list)
+#stock_name_list.extend(semi_stock_list)
+#stock_name_list.extend(fangman_stock_list)
 
 result_dir = "./save_visualization"
 
 def get_range_min_max(idf):
     last = len(idf)
-    mav = idf['Adj Close'].rolling(20).mean()
+    mav = idf['Adj Close'].rolling(20).mean().round(2)
     mav = mav[last - 30: last]
     return mav.min(), mav.max()
 
@@ -87,11 +91,11 @@ def main():
             )
 
         # Configure chart legend and title
-        axes[0].legend(["MA20", "MA60", "MA120"], loc="upper left")
         rmin, rmax = get_range_min_max(df)
         #axes[0].axhline(y=df['Close'].iloc[-1], color='r', linestyle='--')
         axes[0].axhline(y=rmin, color='r', linestyle='--')
         axes[0].axhline(y=rmax, color='r', linestyle='--')
+        axes[0].legend(["MA20", "MA60", "MA120", rmin, rmax], loc="upper left")
         file_name = os.path.join(result_dir, stock_name + ".png")
         fig.savefig(file_name,dpi=300)
         plt.close(fig)
