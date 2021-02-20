@@ -7,7 +7,7 @@ from algoTrading.utils import plotting
 
 class TestPlotting(unittest.TestCase):
 
-    def test_draw_regular_plot(self):
+    def test_test(self):
         pass
     
 if __name__ == "__main__":
