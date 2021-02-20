@@ -39,7 +39,8 @@ install_requires.extend([
     'matplotlib',
     'seaborn',
     'datetime',
-    'numpy'
+    'numpy',
+    'mplfinance'
 ])
 
 ################################################################################

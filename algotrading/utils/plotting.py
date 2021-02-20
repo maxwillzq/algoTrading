@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import linregress
 import datetime as dt
+import mplfinance
 import logging
 import numpy as np
 logger = logging.getLogger(__name__)
@@ -19,6 +20,8 @@ def read_stock_data_to_df(stock_name, start = None, end = None):
   df = web.DataReader(stock_name, 'yahoo', start, end)
   df.to_csv(stock_name + '.csv')
   df = pd.read_csv(stock_name + '.csv')
+  df.set_index('Date', inplace=True)
+  df.index = pd.to_datetime(df.index)
   return df
 
 def draw_regular_plot(df, stock_name=None, param={}):
@@ -61,16 +64,15 @@ def draw_moving_average_plot(df, stock_name, param={}):
   lists = [20, 60, 120]
   if "list" in param:
     lists = param["list"]
+  mplfinance.plot(df, type='candle', mav=lists, volume=True,figsize=(12, 9))
   args = {}
   for item in lists:
     df['MA' + str(item)] = df['Adj Close'].rolling(item).mean()
     args['MA' + str(item)] = df['MA' + str(item)]
   args['Adj Close'] = df['Adj Close']
   df2 = pd.DataFrame(args)
-  df2.plot(figsize=(12, 9), legend=True, title=stock_name)
-  #df2.to_csv('AAPL_MA.csv')
   fig = plt.gcf()
-  fig.set_size_inches(12, 9)
+  #fig.set_size_inches(12, 9)
   #fig.savefig('AAPL_plot.png', dpi=300)
   plt.grid()
   plt.show()
