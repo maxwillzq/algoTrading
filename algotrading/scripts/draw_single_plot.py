@@ -16,12 +16,17 @@ import argparse
 import json
 import logging
 from collections import OrderedDict
+import shutil
 
 logger = logging.getLogger(__name__)
-end = dt.datetime.now()
-start = end - dt.timedelta(days=365)
 #start = dt.datetime(end.year - 1, end.month, end.day)
-shuping_holding_list = ['ADBE', 'U', 'AMC', 'BABA', 'FB', 'COST'] 
+shuping_holding_list = [
+    'ADBE', 'U', 'AMC', 'BABA', 'FB', 'COST', 'CRM', 'QCOM',
+    "MMM",  "C", "COST",
+    'TSM', 'ASML', 'AMAT',
+    "BABA", "FB", "AMZN", "AAPL", "GOOG", "NFLX", "AMD", "MSFT",
+    'PLTR', 'IPOE'
+]
 etf_name_list = [
     "VTI", "DIA", "OEF", "MDY", "SPY",  "RSP", "QQQ", "QTEC", "IWB", "IWM", # Broad Market
     "MTUM", "VLUE", "QUAL", "USMV", # Factors
@@ -35,25 +40,15 @@ etf_name_list = [
     "XLB", "GDX", "XME", "LIT", "REMX", "IYM",
     "XLRE", "VNQ", "VNQI", "REM", 
     "XLK", "VGT", "FDN", "SOCL", "IGV","SOXX", "XLU"]
-industry_stock_list = ["MMM",  "C", "COST"]
-semi_stock_list = ['TSM', 'ASML', 'AMAT']
-fangman_stock_list = ["BABA", "FB", "AMZN", "AAPL", "GOOG", "NFLX", "AMD", "MSFT"]
 
-stock_name_list = []
+default_stock_name_list = []
 
 # User setup area: choose stock symbol list
-stock_name_list.extend(shuping_holding_list)
-stock_name_list.extend(etf_name_list)
-stock_name_list.extend(industry_stock_list)
-stock_name_list.extend(semi_stock_list)
-stock_name_list.extend(fangman_stock_list)
-
-stock_name_list = list(OrderedDict.fromkeys(stock_name_list)) 
-
-result_dir = "./save_visualization"
-if os.path.isdir(result_dir):
-    os.rmdir(result_dir)
-os.mkdir(result_dir)
+shuping_holding_list = list(OrderedDict.fromkeys(shuping_holding_list))
+etf_name_list = list(OrderedDict.fromkeys(etf_name_list))
+default_stock_name_list.extend(shuping_holding_list)
+default_stock_name_list.extend(etf_name_list)
+default_stock_name_list = list(OrderedDict.fromkeys(default_stock_name_list)) 
 
 def get_range_min_max(idf):
     last = len(idf)
@@ -61,16 +56,77 @@ def get_range_min_max(idf):
     mav = mav[last - 30: last]
     return mav.min(), mav.max()
 
+def calc_buy_sell_signal(df, apds):
+    idf = df.copy()
+    idf['20_EMA'] = idf['Close'].rolling(20).mean()
+    idf['60_EMA'] = idf['Close'].rolling(60).mean()
+    idf['Signal'] = 0.0  
+    idf['Signal'] = np.where(idf['20_EMA'] > idf['60_EMA'], 1.0, 0.0)
+    idf['Position'] = idf['Signal'].diff()
+    my_markers = []
+    colors = []
+    for i, v in idf['Position'].items():
+        marker = None
+        color = 'b'
+        if v == 1:
+            marker = '^'
+            color = 'g'
+        elif v == -1:
+            marker = 'v'
+            color = 'r'
+        my_markers.append(marker)
+        colors.append(color)
+    apds.append(mpf.make_addplot(idf['20_EMA'], type='scatter', marker=my_markers,markersize=45,color=colors))
 
 def main():
     parser = argparse.ArgumentParser(description="plot stock")
     parser.add_argument(
-        "--name",
-        required=False,
-        help="The stock name list"
+        "--result_dir",
+        default="./save_visualization",
+        help="The result dir"
     )
+    parser.add_argument(
+        "--stock_list",
+        default="shuping",
+        help="delimited stock name list",
+        type=str,
+    )
+    parser.add_argument(
+        "--days",
+        default=365,
+        help="how many days, default is 300",
+        type=int,
+    )
+    parser.add_argument(
+        "--sort_by",
+        default="5D%",
+        help="sorted by which column.Default is 5D",
+        type=str,
+    )
+    
 
-    markdown_str = "# Daily stock plotting\n"
+    args = parser.parse_args()
+    result_dir = args.result_dir
+    """
+    if os.path.isdir(result_dir):
+        shutil.rmtree(result_dir)
+    os.mkdir(result_dir)
+    """
+
+    end = dt.datetime.now()
+    start = end - dt.timedelta(days=args.days)
+
+    stock_name_list = args.stock_list
+    if stock_name_list == "shuping":
+        stock_name_list = shuping_holding_list
+    elif stock_name_list == "etf":
+        stock_name_list = etf_name_list
+    elif stock_name_list == "all":
+        stock_name_list = default_stock_name_list
+    else:
+        stock_name_list = [item for item in args.stock_list.split(',')]    
+
+    markdown_str = f"# Stock analysis report ({end})\n"
     price_change_table = []
     plotting_dict = {}
     for stock_name in stock_name_list:
@@ -78,15 +134,15 @@ def main():
         price_change_info = {}
         price_change_info["name"] = stock_name
         last = len(df) - 1
-        for delta in [1, 5, 10, 20, 60, 120]:
+        for delta in [1, 5, 10, 20, 60, 120, 240, 500]:
             key_name = f"{delta}D%"
-            value = (df['Close'].iloc[last] - df['Close'].iloc[last - delta])/df['Close'].iloc[last - delta] * 100
-            value = round(value, 2)
-            price_change_info[key_name] = value
+            if last - delta > 0:
+                value = (df['Close'].iloc[last] - df['Close'].iloc[last - delta])/df['Close'].iloc[last - delta] * 100
+                value = round(value, 2)
+                price_change_info[key_name] = value
+            else:
+                price_change_info[key_name] = None
         price_change_table.append(price_change_info)
-
-        mc = mpf.make_marketcolors(up='g',down='r')
-        john  = mpf.make_mpf_style(base_mpf_style='charles', marketcolors=mc, mavcolors=['b', 'g', 'r'])
 
         exp12     = df['Close'].ewm(span=12, adjust=False).mean()
         exp26     = df['Close'].ewm(span=26, adjust=False).mean()
@@ -102,31 +158,31 @@ def main():
                 mpf.make_addplot(macd,panel=1,color='fuchsia',secondary_y=True),
                 mpf.make_addplot(signal,panel=1,color='b',secondary_y=True),
             ]
+        calc_buy_sell_signal(df, apds)
         
         file_name = os.path.join(result_dir, stock_name + ".png")
-        if not os.path.isfile(file_name):
-            fig, axes = mpf.plot(df, 
-                type='candle', 
-                style="yahoo",
-                mav=[20, 60, 120], 
-                volume=True,
-                figsize=(12, 9), 
-                title=stock_name,
-                #savefig=stock_name + ".png",
-                returnfig=True,
-                volume_panel=2,
-                addplot=apds,
-                #hlines=[1400],
-                )
+        fig, axes = mpf.plot(df, 
+            type='candle', 
+            style="yahoo",
+            mav=[20, 60, 120], 
+            volume=True,
+            figsize=(12, 9), 
+            title=stock_name,
+            #savefig=stock_name + ".png",
+            returnfig=True,
+            volume_panel=2,
+            addplot=apds,
+            #hlines=[1400],
+            )
 
-            # Configure chart legend and title
-            rmin, rmax = get_range_min_max(df)
-            #axes[0].axhline(y=df['Close'].iloc[-1], color='r', linestyle='--')
-            axes[0].axhline(y=rmin, color='r', linestyle='--')
-            axes[0].axhline(y=rmax, color='r', linestyle='--')
-            axes[0].legend(["MA20", "MA60", "MA120", rmin, rmax], loc="upper left")
-            fig.savefig(file_name,dpi=300)
-            plt.close(fig)
+        # Configure chart legend and title
+        rmin, rmax = get_range_min_max(df)
+        #axes[0].axhline(y=df['Close'].iloc[-1], color='r', linestyle='--')
+        axes[0].axhline(y=rmin, color='r', linestyle='--')
+        axes[0].axhline(y=rmax, color='r', linestyle='--')
+        axes[0].legend(["MA20", "MA60", "MA120", rmin, rmax], loc="upper left")
+        fig.savefig(file_name,dpi=300)
+        plt.close(fig)
     
         round_df = df.round(2)
         plotting_markdown_str = "\n\\pagebreak\n\n"
@@ -138,16 +194,18 @@ def main():
     # add price table
     price_change_table_md = "## price change table\n\n"
     price_change_table_pd = pd.DataFrame(price_change_table)
-    price_change_table_pd = price_change_table_pd.sort_values(["120D%", "60D%", "20D%"], ascending=[False, False, False])
-    price_change_table_pd.set_index("name", inplace=True)
+    price_change_table_pd = price_change_table_pd.sort_values([args.sort_by])
+    #price_change_table_pd.set_index("name", inplace=True)
     price_change_table_md += price_change_table_pd.to_markdown()
     markdown_str += price_change_table_md
 
     # add single plot
     for ind in price_change_table_pd.index:
-        key_name = ind
+        #import pdb
+        #pdb.set_trace()
+        key_name = price_change_table_pd.loc[ind].loc["name"]
         markdown_str += plotting_dict[key_name]
-        markdown_str += price_change_table_pd[ind].to_markdown()
+        markdown_str += price_change_table_pd.loc[ind].to_markdown()
 
     # Generate markdown and pdf
     md_file_path = os.path.realpath(os.path.join(result_dir, "daily_plot.md"))
