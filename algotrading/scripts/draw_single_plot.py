@@ -21,11 +21,12 @@ import shutil
 logger = logging.getLogger(__name__)
 #start = dt.datetime(end.year - 1, end.month, end.day)
 shuping_holding_list = [
-    'ADBE', 'U', 'AMC', 'BABA', 'FB', 'COST', 'CRM', 'QCOM',
+    'ADBE', 'U', 'AMC', 'BABA', 'FB', 'COST', 'CRM', 'QCOM', 'TIGR', 'ARKK',
+    'AMD',
     "MMM",  "C", "COST",
     'TSM', 'ASML', 'AMAT',
     "BABA", "FB", "AMZN", "AAPL", "GOOG", "NFLX", "AMD", "MSFT",
-    'PLTR', 'IPOE'
+    'PLTR', 'IPOE', 'SFIX'
 ]
 etf_name_list = [
     "VTI", "DIA", "OEF", "MDY", "SPY",  "RSP", "QQQ", "QTEC", "IWB", "IWM", # Broad Market
@@ -35,11 +36,21 @@ etf_name_list = [
     "XLC", "XLY", "XHB", "XRT", "XLP",
     "XLE", "XOP", "OIH", "TAN", "URA", 
     "XLF", "KBE", "KIE", "IAI",
-    "XLV", "IBB", "IHI", "IHF", "XPH",
+    "IBB", "IHI", "IHF", "XPH",
     "XLI", "ITA", "IYT", "JETS", 
-    "XLB", "GDX", "XME", "LIT", "REMX", "IYM",
+    "XLB",  
+    "XME", "LIT", "REMX", "IYM",
     "XLRE", "VNQ", "VNQI", "REM", 
-    "XLK", "VGT", "FDN", "SOCL", "IGV","SOXX", "XLU"]
+    "XLK", "VGT", "FDN", "SOCL", "IGV","SOXX", "XLU",
+    "GLD",
+    "^TNX", # US 10Y Yield
+    "DX-Y.NYB", # US Dollar/USDX - Index - Cash (DX-Y.NYB)
+    "USDCNY=X", # USD/CNY
+    "SI=F", # Silver
+    "GC=F", # Gold
+    "CL=F", # Oil
+    #"GDX", "XLV",
+    ]
 
 default_stock_name_list = []
 
@@ -58,25 +69,45 @@ def get_range_min_max(idf):
 
 def calc_buy_sell_signal(df, apds):
     idf = df.copy()
+    exp12     = idf['Close'].ewm(span=12, adjust=False).mean()
+    exp26     = idf['Close'].ewm(span=26, adjust=False).mean()
+    macd      = exp12 - exp26
+    signal    = macd.ewm(span=9, adjust=False).mean()
+    histogram = macd - signal
+
+    apds.extend([
+                mpf.make_addplot(histogram,type='bar',width=0.7,panel=1,
+                                color='dimgray',alpha=1,secondary_y=False),
+                mpf.make_addplot(macd,panel=1,color='fuchsia',secondary_y=True),
+                mpf.make_addplot(signal,panel=1,color='b',secondary_y=True),
+            ])
+
     idf['20_EMA'] = idf['Close'].rolling(20).mean()
+    idf['20_EMA_Future'] = idf['20_EMA'] + idf['20_EMA'].diff() * 5
     idf['60_EMA'] = idf['Close'].rolling(60).mean()
+    idf['60_EMA_Future'] = idf['60_EMA'] + idf['60_EMA'].diff() * 5
     idf['Signal'] = 0.0  
-    idf['Signal'] = np.where(idf['20_EMA'] > idf['60_EMA'], 1.0, 0.0)
+    #idf['Signal'] = np.where(idf['20_EMA_Future'] > idf['60_EMA_Future'], 1.0, 0.0)
+    idf['Signal'] = np.where(macd > signal + 0.02, 1.0, 0.0)
     idf['Position'] = idf['Signal'].diff()
     my_markers = []
     colors = []
     for i, v in idf['Position'].items():
         marker = None
         color = 'b'
-        if v == 1:
+        if v == 1 and idf.loc[i]["Close"] <= max(idf.loc[i]["60_EMA"], idf.loc[i]["20_EMA"]) * 1.05:
+            # Buy point
             marker = '^'
             color = 'g'
-        elif v == -1:
-            marker = 'v'
+            logger.debug(f"index = {i}, macd = {macd.loc[i]}, signal = {signal.loc[i]}, hist = {histogram.loc[i]}")
+        elif v == -1 and idf.loc[i]["Close"] >= max(idf.loc[i]["20_EMA"],idf.loc[i]["60_EMA"]):
+            # Sell point
+            # marker = 'v'
+            marker = None
             color = 'r'
         my_markers.append(marker)
         colors.append(color)
-    apds.append(mpf.make_addplot(idf['20_EMA'], type='scatter', marker=my_markers,markersize=45,color=colors))
+    apds.append(mpf.make_addplot(idf['Close'], type='scatter', marker=my_markers,markersize=45,color=colors))
 
 def main():
     parser = argparse.ArgumentParser(description="plot stock")
@@ -142,29 +173,20 @@ def main():
                 price_change_info[key_name] = value
             else:
                 price_change_info[key_name] = None
+
+        df['20_EMA'] = df['Close'].ewm(span=20, adjust=False).mean()
+        price_change_info["MA20%"] = (df['Close'].iloc[last] - df['20_EMA'].iloc[last])/df['20_EMA'].iloc[last] * 100
+
         price_change_table.append(price_change_info)
+        apds = []
 
-        exp12     = df['Close'].ewm(span=12, adjust=False).mean()
-        exp26     = df['Close'].ewm(span=26, adjust=False).mean()
-        macd      = exp12 - exp26
-        signal    = macd.ewm(span=9, adjust=False).mean()
-        histogram = macd - signal
-
-        apds = [
-                #mpf.make_addplot(exp12,color='lime'),
-                #mpf.make_addplot(exp26,color='c'),
-                mpf.make_addplot(histogram,type='bar',width=0.7,panel=1,
-                                color='dimgray',alpha=1,secondary_y=False),
-                mpf.make_addplot(macd,panel=1,color='fuchsia',secondary_y=True),
-                mpf.make_addplot(signal,panel=1,color='b',secondary_y=True),
-            ]
         calc_buy_sell_signal(df, apds)
         
         file_name = os.path.join(result_dir, stock_name + ".png")
         fig, axes = mpf.plot(df, 
             type='candle', 
             style="yahoo",
-            mav=[20, 60, 120], 
+            mav=[20, 60, 120, 200], 
             volume=True,
             figsize=(12, 9), 
             title=stock_name,
@@ -180,7 +202,7 @@ def main():
         #axes[0].axhline(y=df['Close'].iloc[-1], color='r', linestyle='--')
         axes[0].axhline(y=rmin, color='r', linestyle='--')
         axes[0].axhline(y=rmax, color='r', linestyle='--')
-        axes[0].legend(["MA20", "MA60", "MA120", rmin, rmax], loc="upper left")
+        axes[0].legend(["MA20", "MA60", "MA120", "MA200", rmin, rmax], loc="upper left")
         fig.savefig(file_name,dpi=300)
         plt.close(fig)
     
