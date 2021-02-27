@@ -71,4 +71,9 @@ setuptools.setup(
     setup_requires=setup_requires,
     tests_require=tests_require,
     python_requires='>=3.6',
+    entry_points={
+        'console_scripts': [
+            'algotrading_daily_plot =  algotrading.scripts.draw_single_plot:main'
+        ]
+    }
 )
