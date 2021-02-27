@@ -16,13 +16,14 @@ import argparse
 import json
 import logging
 from collections import OrderedDict
+from datetime import timedelta
 import shutil
 
 logger = logging.getLogger(__name__)
 #start = dt.datetime(end.year - 1, end.month, end.day)
 shuping_holding_list = [
     'ADBE', 'U', 'AMC', 'BABA', 'FB', 'COST', 'CRM', 'QCOM', 'TIGR', 'ARKK',
-    'AMD',
+    'AMD', 'BB', "CCL",
     "MMM",  "C", "COST",
     'TSM', 'ASML', 'AMAT',
     "BABA", "FB", "AMZN", "AAPL", "GOOG", "NFLX", "AMD", "MSFT",
@@ -66,6 +67,83 @@ def get_range_min_max(idf):
     mav = idf['Adj Close'].rolling(20).mean().round(2)
     mav = mav[last - 30: last]
     return mav.min(), mav.max()
+
+def plot_band_line(df, apds):
+    step = 300
+    idf = df.copy()
+    idf['Date'] = pd.to_datetime(idf.index)
+    idf['Date'] = idf['Date'].map(dt.datetime.toordinal)
+    
+    data1 = idf.copy()
+    data1 = data1[len(data1)-step: len(data1)-1]
+
+    # high trend line
+    while len(data1)>10:
+        reg = linregress(
+                        x= data1['Date'],
+                        y=data1['High'],
+        )
+        data1 = data1.loc[data1['High'] > reg[0] * data1['Date'] + reg[1]]
+    reg = linregress(
+                    x= data1['Date'],
+                    y=data1['High'],
+    )
+
+    idf['high_trend'] = reg[0] * idf['Date'] + reg[1]
+
+    # low trend line
+    data1 = idf.copy()
+    data1 = data1[len(data1)-step: len(data1)-1]
+
+    while len(data1)>10:
+        reg = linregress(
+                        x= data1['Date'],
+                        y=data1['Low'],
+                        )
+        data1 = data1.loc[data1['Low'] < reg[0] * data1['Date'] + reg[1]]
+
+    reg = linregress(
+                        x= data1['Date'],
+                        y=data1['Low'],
+                        )
+    idf['low_trend'] = reg[0] * idf['Date'] + reg[1]
+
+    #idf['Close'].plot()
+    #idf['high_trend'].plot()
+    #idf['low_trend'].plot()
+    #idf["Prediction"].plot()
+    #plt.show()
+
+    apds.extend([
+                mpf.make_addplot(idf["high_trend"],type="line", marker='^', color='r'),
+                mpf.make_addplot(idf["low_trend"], color='r')])
+
+def plot_trend_line(df, apds):
+    idf = df.copy()
+    idf['Date'] = pd.to_datetime(idf.index)
+    idf['Date'] = idf['Date'].map(dt.datetime.toordinal)
+    data1 = idf.copy()
+
+    rets = np.log(data1['Adj Close'])
+    x = data1["Date"]
+    slope, intercept, r_value, p_value, std_err = linregress(x, rets)
+    idf['Prediction'] = np.e ** (intercept + slope * idf["Date"])
+
+    result = {}
+    for days in [365, 2 * 365, 3 * 365]:
+        predict_price = np.e ** (intercept + slope * (idf['Date'].iloc[-1] + days) )
+        predict_price = round(predict_price, 2)
+        result[days] = predict_price
+    
+    #idf['Close'].plot()
+    #idf["Prediction"].plot()
+    #plt.show()
+
+    apds.extend([
+                mpf.make_addplot(idf["Prediction"], type="scatter")
+                ])
+    return result
+
 
 def calc_buy_sell_signal(df, apds):
     idf = df.copy()
@@ -130,8 +208,8 @@ def main():
     )
     parser.add_argument(
         "--sort_by",
-        default="5D%",
-        help="sorted by which column.Default is 5D",
+        default="1D%",
+        help="sorted by which column.Default is 1D",
         type=str,
     )
     
@@ -181,6 +259,8 @@ def main():
         apds = []
 
         calc_buy_sell_signal(df, apds)
+        # prediction_dict = plot_trend_line(df, apds)
+        # plot_band_line(df, apds)
         
         file_name = os.path.join(result_dir, stock_name + ".png")
         fig, axes = mpf.plot(df, 
@@ -230,11 +310,17 @@ def main():
         markdown_str += price_change_table_pd.loc[ind].to_markdown()
 
     # Generate markdown and pdf
-    md_file_path = os.path.realpath(os.path.join(result_dir, "daily_plot.md"))
+    if args.stock_list == "shuping":
+        output_file_name = "shuping_daily_plot"
+    elif args.stock_list == "etf":
+        output_file_name = "etf_daily_plot"
+    else: 
+        output_file_name = "daily_plot"
+    md_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".md"))
     with open(md_file_path, 'w') as f:
         f.write(markdown_str)
 
-    pdf_file_path = os.path.realpath(os.path.join(result_dir, "daily_plot.pdf"))
+    pdf_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".pdf"))
     os.chdir(result_dir)
     output = pypandoc.convert_file(md_file_path, 'pdf', outputfile=pdf_file_path,
     extra_args=['-V', 'geometry:margin=1.5cm', '--pdf-engine=/Library/TeX/texbin/pdflatex'])
