@@ -40,7 +40,8 @@ install_requires.extend([
     'seaborn',
     'datetime',
     'numpy',
-    'mplfinance'
+    'mplfinance',
+    'pypandoc',
 ])
 
 ################################################################################
