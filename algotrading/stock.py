@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import linregress
 import datetime as dt
-import mplfinance
+import mplfinance as mpf
 import logging
 import numpy as np
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class Stock:
         self.stock_name = stock_name
         self.markdown_notes = []
 
-    def read_stock_data_to_df(self, start = None, end = None):
+    def read_stock_data(self, start = None, end = None):
         """Read Stock Data from Yahoo Finance
         """
         if end is None:
@@ -28,11 +29,11 @@ class Stock:
         df = web.DataReader(self.stock_name, 'yahoo', start, end)
         df.index = pd.to_datetime(df.index)
         self.df = df
-        return df
+        return self.df
     
-    def get_ma_range_min_max(idf, MA):
-        last = len(idf)
-        mav = idf['Adj Close'].rolling(MA).mean().round(2)
+    def get_ma_range_min_max(self, MA=20):
+        last = len(self.df)
+        mav = self.df['Adj Close'].rolling(MA).mean().round(2)
         mav = mav[last - MA: last]
         return mav.min(), mav.max()
     
@@ -113,7 +114,7 @@ class Stock:
                     ])
         return apds, result
 
-    def calc_buy_sell_signal(self, apds):
+    def calc_buy_sell_signal(self):
         idf = self.df.copy()
         exp12     = idf['Close'].ewm(span=12, adjust=False).mean()
         exp26     = idf['Close'].ewm(span=26, adjust=False).mean()
@@ -157,28 +158,72 @@ class Stock:
         return apds
     
     def get_price_change_table(self):
-        """generate price_change_info dict.
+        """generate result_dict dict.
         key is "5D%, 10D% ..." or moving average "20MA% .."
         value is difference to this baseline
         """
-        price_change_info = {}
-        price_change_info["name"] = self.stock_name
+        result_dict = {}
+        result_dict["name"] = self.stock_name
         last = len(self.df) - 1
-        for delta in [1, 5, 10, 20, 60, 120, 240, 500]:
+        for delta in [1, 5, 20, 60, 120, 240]:
             key_name = f"{delta}D%"
             if last - delta > 0:
                 value = (self.df['Close'].iloc[last] - self.df['Close'].iloc[last - delta])/self.df['Close'].iloc[last - delta] * 100
                 value = round(value, 2)
-                price_change_info[key_name] = value
+                result_dict[key_name] = value
             else:
-                price_change_info[key_name] = None
+                result_dict[key_name] = None
 
-        for delta in [20, 60, 120, 200]:
+        for delta in [20, 60, 120]:
             key_name = f"{delta}MA%"
-            df_EMA = self.df['Close'].ewm(span=20, adjust=False).mean()
-            price_change_info[key_name] = (self.df['Close'].iloc[last] - df_EMA.iloc[last])/df_EMA.iloc[last] * 100
+            df_EMA = self.df['Close'].rolling(delta).mean().round(2)
+            value = (self.df['Close'].iloc[last] - df_EMA.iloc[last])/df_EMA.iloc[last] * 100
+            value = round(value, 2)
+            result_dict[key_name] = value
+
+        # about volume
+        df_volume_EMA = self.df['Volume'].rolling(20).mean().round(2)
+        key_name = "vol_change%"
+        value = (self.df['Volume'].iloc[last] - df_volume_EMA.iloc[last])/df_volume_EMA.iloc[last] * 100
+        value = round(value, 2)
+        result_dict[key_name] = value
         
-        return price_change_info
+        return result_dict
+    
+    def save_plot(self, result_dir, apds=[]):
+        file_name = os.path.join(result_dir, self.stock_name + ".png")
+        mav = [20, 60, 120, 200]
+        legend_names = [f"MA{item}" for item in mav]
+        last = len(self.df) - 1
+        delta = 1
+        daily_percentage = (self.df['Close'].iloc[last] - self.df['Close'].iloc[last - delta])/self.df['Close'].iloc[last - delta] * 100
+        daily_percentage = round(daily_percentage, 2)
+        fig, axes = mpf.plot(self.df, 
+            type='candle', 
+            style="yahoo",
+            mav=mav, 
+            volume=True,
+            figsize=(12, 9), 
+            title=f"Today's increase={daily_percentage}%",
+            returnfig=True,
+            volume_panel=2,
+            addplot=apds,
+            )
+
+        # Configure chart legend and title
+        rmin, rmax = self.get_ma_range_min_max(MA=20)
+        rmin = round(rmin, 2)
+        rmax = round(rmax, 2)
+        axes[0].axhline(y=rmin, color='r', linestyle='--')
+        axes[0].axhline(y=rmax, color='r', linestyle='--')
+        legend_names.append([rmin, rmax])
+        axes[0].legend(legend_names, loc="upper left")
+        fig.savefig(file_name,dpi=300)
+        plt.close(fig)
+        return file_name
+    
+    
+
 
 
 

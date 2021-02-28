@@ -1,4 +1,5 @@
 import algotrading
+import algotrading.stock
 from algotrading.utils import *
 import pandas as pd
 import pandas_datareader.data as web
@@ -60,132 +61,22 @@ shuping_holding_list = list(OrderedDict.fromkeys(shuping_holding_list))
 etf_name_list = list(OrderedDict.fromkeys(etf_name_list))
 default_stock_name_list.extend(shuping_holding_list)
 default_stock_name_list.extend(etf_name_list)
-default_stock_name_list = list(OrderedDict.fromkeys(default_stock_name_list)) 
+default_stock_name_list = list(OrderedDict.fromkeys(default_stock_name_list))
 
-def get_range_min_max(idf):
-    last = len(idf)
-    mav = idf['Adj Close'].rolling(20).mean().round(2)
-    mav = mav[last - 30: last]
-    return mav.min(), mav.max()
+def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
+    price_change_table_pd = pd.DataFrame(price_change_table)
+    price_change_table_pd = price_change_table_pd.sort_values([sort_by])
 
-def plot_band_line(df, apds):
-    step = 300
-    idf = df.copy()
-    idf['Date'] = pd.to_datetime(idf.index)
-    idf['Date'] = idf['Date'].map(dt.datetime.toordinal)
-    
-    data1 = idf.copy()
-    data1 = data1[len(data1)-step: len(data1)-1]
-
-    # high trend line
-    while len(data1)>10:
-        reg = linregress(
-                        x= data1['Date'],
-                        y=data1['High'],
-        )
-        data1 = data1.loc[data1['High'] > reg[0] * data1['Date'] + reg[1]]
-    reg = linregress(
-                    x= data1['Date'],
-                    y=data1['High'],
-    )
-
-    idf['high_trend'] = reg[0] * idf['Date'] + reg[1]
-
-    # low trend line
-    data1 = idf.copy()
-    data1 = data1[len(data1)-step: len(data1)-1]
-
-    while len(data1)>10:
-        reg = linregress(
-                        x= data1['Date'],
-                        y=data1['Low'],
-                        )
-        data1 = data1.loc[data1['Low'] < reg[0] * data1['Date'] + reg[1]]
-
-    reg = linregress(
-                        x= data1['Date'],
-                        y=data1['Low'],
-                        )
-    idf['low_trend'] = reg[0] * idf['Date'] + reg[1]
-
-    #idf['Close'].plot()
-    #idf['high_trend'].plot()
-    #idf['low_trend'].plot()
-    #idf["Prediction"].plot()
-    #plt.show()
-
-    apds.extend([
-                mpf.make_addplot(idf["high_trend"],type="line", marker='^', color='r'),
-                mpf.make_addplot(idf["low_trend"], color='r')])
-
-def plot_trend_line(df, apds):
-    idf = df.copy()
-    idf['Date'] = pd.to_datetime(idf.index)
-    idf['Date'] = idf['Date'].map(dt.datetime.toordinal)
-    data1 = idf.copy()
-
-    rets = np.log(data1['Adj Close'])
-    x = data1["Date"]
-    slope, intercept, r_value, p_value, std_err = linregress(x, rets)
-    idf['Prediction'] = np.e ** (intercept + slope * idf["Date"])
-
-    result = {}
-    for days in [365, 2 * 365, 3 * 365]:
-        predict_price = np.e ** (intercept + slope * (idf['Date'].iloc[-1] + days) )
-        predict_price = round(predict_price, 2)
-        result[days] = predict_price
-    
-    #idf['Close'].plot()
-    #idf["Prediction"].plot()
-    #plt.show()
-
-    apds.extend([
-                mpf.make_addplot(idf["Prediction"], type="scatter")
-                ])
-    return result
-
-
-def calc_buy_sell_signal(df, apds):
-    idf = df.copy()
-    exp12     = idf['Close'].ewm(span=12, adjust=False).mean()
-    exp26     = idf['Close'].ewm(span=26, adjust=False).mean()
-    macd      = exp12 - exp26
-    signal    = macd.ewm(span=9, adjust=False).mean()
-    histogram = macd - signal
-
-    apds.extend([
-                mpf.make_addplot(histogram,type='bar',width=0.7,panel=1,
-                                color='dimgray',alpha=1,secondary_y=False),
-                mpf.make_addplot(macd,panel=1,color='fuchsia',secondary_y=True),
-                mpf.make_addplot(signal,panel=1,color='b',secondary_y=True),
-            ])
-
-    idf['20_EMA'] = idf['Close'].rolling(20).mean()
-    idf['20_EMA_Future'] = idf['20_EMA'] + idf['20_EMA'].diff() * 5
-    idf['60_EMA'] = idf['Close'].rolling(60).mean()
-    idf['60_EMA_Future'] = idf['60_EMA'] + idf['60_EMA'].diff() * 5
-    idf['Signal'] = 0.0  
-    #idf['Signal'] = np.where(idf['20_EMA_Future'] > idf['60_EMA_Future'], 1.0, 0.0)
-    idf['Signal'] = np.where(macd > signal + 0.02, 1.0, 0.0)
-    idf['Position'] = idf['Signal'].diff()
-    my_markers = []
-    colors = []
-    for i, v in idf['Position'].items():
-        marker = None
-        color = 'b'
-        if v == 1 and idf.loc[i]["Close"] <= max(idf.loc[i]["60_EMA"], idf.loc[i]["20_EMA"]) * 1.05:
-            # Buy point
-            marker = '^'
-            color = 'g'
-            logger.debug(f"index = {i}, macd = {macd.loc[i]}, signal = {signal.loc[i]}, hist = {histogram.loc[i]}")
-        elif v == -1 and idf.loc[i]["Close"] >= max(idf.loc[i]["20_EMA"],idf.loc[i]["60_EMA"]):
-            # Sell point
-            # marker = 'v'
-            marker = None
-            color = 'r'
-        my_markers.append(marker)
-        colors.append(color)
-    apds.append(mpf.make_addplot(idf['Close'], type='scatter', marker=my_markers,markersize=45,color=colors))
+    result_str = ""
+    result_str += "## price change table summary\n\n"
+    result_str += "Quick summary:\n\n"
+    result_str += f"- top 3 gainer today: { [name for name in price_change_table_pd.nlargest(3, '1D%').name] }\n"
+    result_str += f"- top 3 loser today: { [name for name in price_change_table_pd.nsmallest(3, '1D%').name] }\n"
+    result_str += f"- top 3 volume increase stock today: { [name for name in price_change_table_pd.nlargest(3, 'vol_change%').name] }\n"
+    result_str += f"- top 3 volume decrease stock today: { [name for name in price_change_table_pd.nsmallest(3, 'vol_change%').name] }\n"
+    result_str += "\n\n"
+    result_str += price_change_table_pd.to_markdown()
+    return result_str, price_change_table_pd
 
 def main():
     parser = argparse.ArgumentParser(description="plot stock")
@@ -212,7 +103,12 @@ def main():
         help="sorted by which column.Default is 1D",
         type=str,
     )
-    
+    parser.add_argument(
+        "--with_chart",
+        default=False,
+        help="flag control output individual stock chart",
+        type=bool,
+    )
 
     args = parser.parse_args()
     result_dir = args.result_dir
@@ -239,75 +135,35 @@ def main():
     price_change_table = []
     plotting_dict = {}
     for stock_name in stock_name_list:
-        df = algotrading.utils.read_stock_data_to_df(stock_name, start=start, end=end)
-        price_change_info = {}
-        price_change_info["name"] = stock_name
-        last = len(df) - 1
-        for delta in [1, 5, 10, 20, 60, 120, 240, 500]:
-            key_name = f"{delta}D%"
-            if last - delta > 0:
-                value = (df['Close'].iloc[last] - df['Close'].iloc[last - delta])/df['Close'].iloc[last - delta] * 100
-                value = round(value, 2)
-                price_change_info[key_name] = value
-            else:
-                price_change_info[key_name] = None
-
-        df['20_EMA'] = df['Close'].ewm(span=20, adjust=False).mean()
-        price_change_info["MA20%"] = (df['Close'].iloc[last] - df['20_EMA'].iloc[last])/df['20_EMA'].iloc[last] * 100
-
+        stock = algotrading.stock.Stock(stock_name)
+        stock.read_stock_data(start=start, end=end)
+        price_change_info = stock.get_price_change_table()
         price_change_table.append(price_change_info)
-        apds = []
 
-        calc_buy_sell_signal(df, apds)
-        # prediction_dict = plot_trend_line(df, apds)
-        # plot_band_line(df, apds)
+        # generate the plot if flag is true
+        if args.with_chart:
+            apds = []
+            subplots = stock.calc_buy_sell_signal()
+            apds.extend(subplots)
+            stock.save_plot(result_dir, apds)
         
-        file_name = os.path.join(result_dir, stock_name + ".png")
-        fig, axes = mpf.plot(df, 
-            type='candle', 
-            style="yahoo",
-            mav=[20, 60, 120, 200], 
-            volume=True,
-            figsize=(12, 9), 
-            title=stock_name,
-            #savefig=stock_name + ".png",
-            returnfig=True,
-            volume_panel=2,
-            addplot=apds,
-            #hlines=[1400],
-            )
+            round_df = stock.df.round(2)
+            plotting_markdown_str = "\n\\pagebreak\n\n"
+            plotting_markdown_str += f"## {stock_name}\n\n"
+            plotting_markdown_str += f"{round_df.tail(5).to_markdown()}\n"
+            plotting_markdown_str += f"![{stock_name}]({stock_name}.png)\n\n\n"
+            plotting_dict[stock_name] = plotting_markdown_str
 
-        # Configure chart legend and title
-        rmin, rmax = get_range_min_max(df)
-        #axes[0].axhline(y=df['Close'].iloc[-1], color='r', linestyle='--')
-        axes[0].axhline(y=rmin, color='r', linestyle='--')
-        axes[0].axhline(y=rmax, color='r', linestyle='--')
-        axes[0].legend(["MA20", "MA60", "MA120", "MA200", rmin, rmax], loc="upper left")
-        fig.savefig(file_name,dpi=300)
-        plt.close(fig)
-    
-        round_df = df.round(2)
-        plotting_markdown_str = "\n\\pagebreak\n\n"
-        plotting_markdown_str += f"## {stock_name}\n\n"
-        plotting_markdown_str += f"{round_df.tail(5).to_markdown()}\n"
-        plotting_markdown_str += f"![{stock_name}]({stock_name}.png)\n\n\n"
-        plotting_dict[stock_name] = plotting_markdown_str
+    # Add summary to report
+    tmp_str, price_change_table_pd = generate_md_summary_from_changed_table(price_change_table, args.sort_by)
+    markdown_str += tmp_str
 
-    # add price table
-    price_change_table_md = "## price change table\n\n"
-    price_change_table_pd = pd.DataFrame(price_change_table)
-    price_change_table_pd = price_change_table_pd.sort_values([args.sort_by])
-    #price_change_table_pd.set_index("name", inplace=True)
-    price_change_table_md += price_change_table_pd.to_markdown()
-    markdown_str += price_change_table_md
-
-    # add single plot
-    for ind in price_change_table_pd.index:
-        #import pdb
-        #pdb.set_trace()
-        key_name = price_change_table_pd.loc[ind].loc["name"]
-        markdown_str += plotting_dict[key_name]
-        markdown_str += price_change_table_pd.loc[ind].to_markdown()
+    # add single plot to report if flag is true
+    if args.with_chart:
+        for ind in price_change_table_pd.index:
+            key_name = price_change_table_pd.loc[ind].loc["name"]
+            markdown_str += plotting_dict[key_name]
+            #markdown_str += price_change_table_pd.loc[ind].to_markdown()
 
     # Generate markdown and pdf
     if args.stock_list == "shuping":
