@@ -130,13 +130,15 @@ class Stock:
                 ])
 
         idf['20_EMA'] = idf['Close'].rolling(20).mean()
-        idf['20_EMA_Future'] = idf['20_EMA'] + idf['20_EMA'].diff() * 5
         idf['60_EMA'] = idf['Close'].rolling(60).mean()
-        idf['60_EMA_Future'] = idf['60_EMA'] + idf['60_EMA'].diff() * 5
+        idf['120_EMA'] = idf['Close'].rolling(120).mean()
         idf['Signal'] = 0.0  
-        #idf['Signal'] = np.where(idf['20_EMA_Future'] > idf['60_EMA_Future'], 1.0, 0.0)
         idf['Signal'] = np.where(macd > signal + 0.02, 1.0, 0.0)
         idf['Position'] = idf['Signal'].diff()
+        bias = (idf['Close'] - idf['120_EMA']) / idf['120_EMA'] * 100
+        apds.append(
+            mpf.make_addplot(bias,panel=3,type='bar',width=0.7,color='g',ylabel="bias", secondary_y=False)
+        )
         my_markers = []
         colors = []
         index = 0
@@ -182,7 +184,7 @@ class Stock:
                 result_dict[key_name] = None
 
         for delta in [20, 60, 120]:
-            key_name = f"{delta}MA%"
+            key_name = f"bias_{delta}MA"
             df_EMA = self.df['Close'].rolling(delta).mean().round(2)
             value = (self.df['Close'].iloc[last] - df_EMA.iloc[last])/df_EMA.iloc[last] * 100
             value = round(value, 2)
