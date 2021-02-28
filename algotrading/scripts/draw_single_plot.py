@@ -105,7 +105,7 @@ def main():
     )
     parser.add_argument(
         "--with_chart",
-        default=False,
+        default=True,
         help="flag control output individual stock chart",
         type=bool,
     )

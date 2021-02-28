@@ -139,6 +139,7 @@ class Stock:
         idf['Position'] = idf['Signal'].diff()
         my_markers = []
         colors = []
+        index = 0
         for i, v in idf['Position'].items():
             marker = None
             color = 'b'
@@ -152,8 +153,14 @@ class Stock:
                 # marker = 'v'
                 marker = None
                 color = 'r'
+            # 抵扣价使用黄色
+            if len(idf) - 1 - 20 == index or len(idf) - 1 - 60 == index:
+                marker = '*'
+                color = 'y'
+            
             my_markers.append(marker)
             colors.append(color)
+            index += 1
         apds.append(mpf.make_addplot(idf['Close'], type='scatter', marker=my_markers,markersize=45,color=colors))
         return apds
     
@@ -216,7 +223,7 @@ class Stock:
         rmax = round(rmax, 2)
         axes[0].axhline(y=rmin, color='r', linestyle='--')
         axes[0].axhline(y=rmax, color='r', linestyle='--')
-        legend_names.append([rmin, rmax])
+        legend_names.extend([rmin, rmax])
         axes[0].legend(legend_names, loc="upper left")
         fig.savefig(file_name,dpi=300)
         plt.close(fig)
