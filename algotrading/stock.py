@@ -135,12 +135,13 @@ class Stock:
         idf['Signal'] = 0.0  
         idf['Signal'] = np.where(macd > signal + 0.02, 1.0, 0.0)
         idf['Position'] = idf['Signal'].diff()
-        bias_20 = (idf['Close'] - idf['20_EMA']) / idf['20_EMA'] * 100
-        bias_60 = (idf['Close'] - idf['60_EMA']) / idf['60_EMA'] * 100
         bias_120 = (idf['Close'] - idf['120_EMA']) / idf['120_EMA'] * 100
-        apds.append(
-            mpf.make_addplot(bias,panel=3,type='bar',width=0.7,color='g',ylabel="bias", secondary_y=False)
+        apds.extend(
+            [
+                mpf.make_addplot(bias_120,panel=3,type='bar',width=0.7,color='b',ylabel="bias_120", secondary_y=False),
+            ]
         )
+
         my_markers = []
         colors = []
         index = 0
