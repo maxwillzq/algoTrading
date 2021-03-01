@@ -131,7 +131,7 @@ class Stock:
 
         idf['20_EMA'] = idf['Close'].rolling(20).mean()
         idf['60_EMA'] = idf['Close'].rolling(60).mean()
-        idf['120_EMA'] = idf['Close'].rolling(120).mean()
+        idf['120_EMA'] = idf['Close'].ewm(span=120, adjust=False).mean()
         idf['Signal'] = 0.0  
         idf['Signal'] = np.where(macd > signal + 0.02, 1.0, 0.0)
         idf['Position'] = idf['Signal'].diff()
