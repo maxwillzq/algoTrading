@@ -33,7 +33,7 @@ class Stock:
     
     def get_ma_range_min_max(self, MA=20):
         last = len(self.df)
-        mav = self.df['Adj Close'].rolling(MA).mean().round(2)
+        mav = self.df['Close'].rolling(MA).mean()
         mav = mav[last - MA: last]
         return mav.min(), mav.max()
     
@@ -204,7 +204,7 @@ class Stock:
     
     def save_plot(self, result_dir, apds=[]):
         file_name = os.path.join(result_dir, self.stock_name + ".png")
-        mav = [20, 60, 120, 200]
+        mav = [20, 60, 120, 200, 500]
         legend_names = [f"MA{item}" for item in mav]
         last = len(self.df) - 1
         delta = 1
