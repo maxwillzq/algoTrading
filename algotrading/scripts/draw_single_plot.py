@@ -23,18 +23,17 @@ import shutil
 logger = logging.getLogger(__name__)
 #start = dt.datetime(end.year - 1, end.month, end.day)
 shuping_holding_list = [
-    'ADBE', 'U', 'AMC', 'BABA', 'FB', 'COST', 'CRM', 'QCOM', 'TIGR', 'ARKK',
+    'ADBE', 'U', 'AMC', 'BABA', 'FB', 'COST', 'CRM', 'QCOM', 'TIGR', 'ARKK', 'ARKG',
     'AMD', 'BB', "CCL",
-    "MMM",  "C", "COST",
-    'TSM', 'ASML', 'AMAT',
+    "MMM",  "C", "COST", "LMT",
+    'TSM', 'ASML', 'AMAT', 'PDD', 'JD',
     "BABA", "FB", "AMZN", "AAPL", "GOOG", "NFLX", "AMD", "MSFT",
-    'PLTR', 'IPOE', 'SFIX'
+    'PLTR', 'IPOE', "BEKE"
 ]
 etf_name_list = [
     "VTI", "DIA", "OEF", "MDY", "SPY",  "RSP", "QQQ", "QTEC", "IWB", "IWM", # Broad Market
     "MTUM", "VLUE", "QUAL", "USMV", # Factors
-    "IWF", "IWD", "IVW", "IVE", # Growth of value
-    "MOAT", "FFTY", "IBUY", "CIBR", "SKYY", "IPAY", "FINX", "XT", "ARKK", "BOTZ", "MOO", "ARKG", "MJ", "ARKW", "ARKQ", "PBW", "BLOK", "SNSR", # Thermatic
+    "IWF", "IWD", "IVW", "IVE", # Gr KW", "ARKQ", "PBW", "BLOK", "SNSR", # Thermatic
     "XLC", "XLY", "XHB", "XRT", "XLP",
     "XLE", "XOP", "OIH", "TAN", "URA", 
     "XLF", "KBE", "KIE", "IAI",
@@ -141,7 +140,7 @@ def main():
         price_change_table.append(price_change_info)
 
         # generate the plot if flag is true
-        if args.with_chart:
+        if args.with_chart is True:
             apds = []
             subplots = stock.calc_buy_sell_signal()
             apds.extend(subplots)
@@ -159,7 +158,7 @@ def main():
     markdown_str += tmp_str
 
     # add single plot to report if flag is true
-    if args.with_chart:
+    if args.with_chart is True:
         for ind in price_change_table_pd.index:
             key_name = price_change_table_pd.loc[ind].loc["name"]
             markdown_str += plotting_dict[key_name]
