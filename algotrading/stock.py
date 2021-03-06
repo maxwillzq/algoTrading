@@ -14,19 +14,22 @@ import os
 logger = logging.getLogger(__name__)
 
 class Stock:
-    def __init__(self, stock_name):
-        self.stock_name = stock_name
+    def __init__(self, name):
+        self.name = name
         self.markdown_notes = []
 
-    def read_stock_data(self, start = None, end = None):
+    def read_data(self, start = None, end = None):
         """Read Stock Data from Yahoo Finance
         """
         if end is None:
             end = dt.datetime.now()
+        if start is None:
+            start =  end - dt.timedelta(365)
         logger.info(f"today is {end}")
         if not start:
             start = dt.datetime(end.year-2, end.month, end.day)
-        df = web.DataReader(self.stock_name, 'yahoo', start, end)
+        
+        df = web.DataReader(self.name, 'yahoo', start, end)
         df.index = pd.to_datetime(df.index)
         self.df = df
         return self.df
@@ -175,7 +178,7 @@ class Stock:
         value is difference to this baseline
         """
         result_dict = {}
-        result_dict["name"] = self.stock_name
+        result_dict["name"] = self.name
         last = len(self.df) - 1
         for delta in [1, 5, 20, 60, 120, 240]:
             key_name = f"{delta}D%"
@@ -202,25 +205,36 @@ class Stock:
         
         return result_dict
     
-    def save_plot(self, result_dir, apds=[]):
-        file_name = os.path.join(result_dir, self.stock_name + ".png")
+    def plot(self, result_dir=None, apds=[], savefig=False):
         mav = [20, 60, 120, 200, 300]
         legend_names = [f"MA{item}" for item in mav]
         last = len(self.df) - 1
         delta = 1
         daily_percentage = (self.df['Close'].iloc[last] - self.df['Close'].iloc[last - delta])/self.df['Close'].iloc[last - delta] * 100
         daily_percentage = round(daily_percentage, 2)
-        fig, axes = mpf.plot(self.df, 
-            type='candle', 
-            style="yahoo",
-            mav=mav, 
-            volume=True,
-            figsize=(12, 9), 
-            title=f"Today's increase={daily_percentage}%",
-            returnfig=True,
-            volume_panel=2,
-            addplot=apds,
-            )
+        if len(apds) > 0:
+            fig, axes = mpf.plot(self.df, 
+                type='candle', 
+                style="yahoo",
+                mav=mav, 
+                volume=True,
+                figsize=(12, 9), 
+                title=f"Today's increase={daily_percentage}%",
+                returnfig=True,
+                volume_panel=2,
+                addplot=apds,
+                )
+        else:
+            fig, axes = mpf.plot(self.df, 
+                type='candle', 
+                style="yahoo",
+                mav=mav, 
+                volume=True,
+                figsize=(12, 9), 
+                title=f"Today's increase={daily_percentage}%",
+                returnfig=True,
+                volume_panel=1,
+                )
 
         # Configure chart legend and title
         rmin, rmax = self.get_ma_range_min_max(MA=20)
@@ -230,9 +244,60 @@ class Stock:
         axes[0].axhline(y=rmax, color='r', linestyle='--')
         legend_names.extend([rmin, rmax])
         axes[0].legend(legend_names, loc="upper left")
-        fig.savefig(file_name,dpi=300)
-        plt.close(fig)
-        return file_name
+        if savefig is True:
+            if result_dir is None:
+                result_dir = "."
+            file_name = os.path.join(result_dir, self.name + ".png")
+            fig.savefig(file_name,dpi=300)
+            plt.close(fig)
+            return file_name
+        else:
+            plt.show()
+            return fig
+
+class Fred:
+    def __init__(self, name):
+        self.name = name
+        self.markdown_notes = []
+
+    def read_data(self, start = None, end = None):
+        """Read Stock Data from Yahoo Finance
+        """
+        if end is None:
+            end = dt.datetime.now()
+        logger.info(f"today is {end}")
+        if not start:
+            start = dt.datetime(end.year-2, end.month, end.day)
+        
+        df = web.DataReader(self.name, 'fred', start, end)
+        df.index = pd.to_datetime(df.index)
+        self.df = df
+        return self.df
+
+    def plot(self, result_dir=None, savefig=False):
+        mav = [20, 60, 120, 200, 300]
+        legend_names = [f"MA{item}" for item in mav]
+        last = len(self.df) - 1
+        delta = 1
+        daily_percentage = (self.df[self.name].iloc[last] - self.df[self.name].iloc[last - delta])/self.df[self.name].iloc[last - delta] * 100
+        daily_percentage = round(daily_percentage, 2)
+        fig = plt.figure(figsize=(12,9))
+        ax = self.df.plot( 
+            title=f"Today's increase={daily_percentage}%",
+            )
+
+        if savefig is True:
+            if result_dir is None:
+                result_dir = "."
+            file_name = os.path.join(result_dir, self.name + ".png")
+            fig.savefig(file_name,dpi=300)
+            plt.close(fig)
+            return file_name
+        else:
+            plt.show()
+            return fig
+
+
     
     
 

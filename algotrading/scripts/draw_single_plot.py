@@ -136,7 +136,7 @@ def main():
     plotting_dict = {}
     for stock_name in stock_name_list:
         stock = algotrading.stock.Stock(stock_name)
-        stock.read_stock_data(start=start, end=end)
+        stock.read_data(start=start, end=end)
         price_change_info = stock.get_price_change_table()
         price_change_table.append(price_change_info)
 
@@ -145,7 +145,7 @@ def main():
             apds = []
             subplots = stock.calc_buy_sell_signal()
             apds.extend(subplots)
-            stock.save_plot(result_dir, apds)
+            stock.plot(result_dir, apds, savefig=True)
         
             round_df = stock.df.round(2)
             plotting_markdown_str = "\n\\pagebreak\n\n"
