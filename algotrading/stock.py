@@ -204,7 +204,7 @@ class Stock:
     
     def save_plot(self, result_dir, apds=[]):
         file_name = os.path.join(result_dir, self.stock_name + ".png")
-        mav = [20, 60, 120, 200, 500]
+        mav = [20, 60, 120, 200, 300]
         legend_names = [f"MA{item}" for item in mav]
         last = len(self.df) - 1
         delta = 1

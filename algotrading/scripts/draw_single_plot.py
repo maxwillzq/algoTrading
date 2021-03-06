@@ -28,7 +28,7 @@ shuping_holding_list = [
     "MMM",  "C", "COST", "LMT",
     'TSM', 'ASML', 'AMAT', 'PDD', 'JD',
     "BABA", "FB", "AMZN", "AAPL", "GOOG", "NFLX", "AMD", "MSFT",
-    'PLTR', 'IPOE', "BEKE"
+    'PLTR', 'IPOE', "BEKE", "QQQ", "SPY",
 ]
 etf_name_list = [
     "VTI", "DIA", "OEF", "MDY", "SPY",  "RSP", "QQQ", "QTEC", "IWB", "IWM", # Broad Market
@@ -51,6 +51,7 @@ etf_name_list = [
     "GC=F", # Gold
     "CL=F", # Oil
     #"GDX", "XLV",
+    "ARKK", "ARKG","ARKF"
     ]
 
 default_stock_name_list = []
@@ -92,7 +93,7 @@ def main():
     )
     parser.add_argument(
         "--days",
-        default=365,
+        default=1000,
         help="how many days, default is 300",
         type=int,
     )
@@ -104,9 +105,9 @@ def main():
     )
     parser.add_argument(
         "--with_chart",
-        default=True,
-        help="flag control output individual stock chart",
-        type=bool,
+        default="Yes",
+        help="flag control output individual stock chart. Yes or No",
+        type=str,
     )
 
     args = parser.parse_args()
@@ -140,7 +141,7 @@ def main():
         price_change_table.append(price_change_info)
 
         # generate the plot if flag is true
-        if args.with_chart is True:
+        if args.with_chart == "Yes":
             apds = []
             subplots = stock.calc_buy_sell_signal()
             apds.extend(subplots)
@@ -158,7 +159,7 @@ def main():
     markdown_str += tmp_str
 
     # add single plot to report if flag is true
-    if args.with_chart is True:
+    if args.with_chart == "Yes":
         for ind in price_change_table_pd.index:
             key_name = price_change_table_pd.loc[ind].loc["name"]
             markdown_str += plotting_dict[key_name]
