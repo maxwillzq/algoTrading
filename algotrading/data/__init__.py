@@ -12,3 +12,7 @@ def get_data_dict(file_name):
     with open(full_file_path, 'r') as f:
         result_dict = yaml.load(f, Loader=yaml.FullLoader)
     return result_dict
+
+def get_data_dir():
+    TOP_DIR = os.path.dirname(__file__)
+    return TOP_DIR
