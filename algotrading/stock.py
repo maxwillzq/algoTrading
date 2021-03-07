@@ -154,16 +154,17 @@ class Stock:
             color = 'b'
             if v == 1 and idf.loc[i]["Close"] <= max(idf.loc[i]["60_EMA"], idf.loc[i]["20_EMA"]) * 1.05:
                 # Buy point
-                marker = '^'
-                color = 'g'
-                logger.debug(f"index = {i}, macd = {macd.loc[i]}, signal = {signal.loc[i]}, hist = {histogram.loc[i]}")
+                #marker = '^'
+                #color = 'g'
+                #logger.debug(f"index = {i}, macd = {macd.loc[i]}, signal = {signal.loc[i]}, hist = {histogram.loc[i]}")
+                pass
             elif v == -1 and idf.loc[i]["Close"] >= max(idf.loc[i]["20_EMA"],idf.loc[i]["60_EMA"]):
                 # Sell point
                 # marker = 'v'
                 marker = None
                 color = 'r'
             # 抵扣价使用黄色
-            if len(idf) - 1 - 20 == index or len(idf) - 1 - 60 == index:
+            if len(idf) - 1 - 20 == index or len(idf) - 1 - 60 == index or len(idf) - 1 - 120 == index:
                 marker = '*'
                 color = 'y'
             
@@ -210,8 +211,24 @@ class Stock:
         return result_dict
     
     def plot(self, result_dir=None, apds=[], savefig=False):
-        mav = [20, 60, 120, 200, 300]
-        legend_names = [f"MA{item}" for item in mav]
+        mav = [20, 60, 120]
+        colors = ['r', 'g', 'b', 'y']
+        legend_names = []
+        added_plots = []
+        for index in range(len(mav)):
+            item = mav[index]
+            color = colors[index]
+            df_sma = self.df['Close'].rolling(item).mean()
+            df_ema = self.df['Close'].ewm(span=item, adjust=False).mean()
+            added_plots.append(
+                mpf.make_addplot(df_sma, color=color)
+            )
+            legend_names.append(f"SMA{item}")
+            added_plots.append(
+                mpf.make_addplot(df_ema, color=color, linestyle='--')
+            )
+            legend_names.append(f"EMA{item}")
+        added_plots.extend(apds)
         last = len(self.df) - 1
         delta = 1
         daily_percentage = (self.df['Close'].iloc[last] - self.df['Close'].iloc[last - delta])/self.df['Close'].iloc[last - delta] * 100
@@ -226,7 +243,7 @@ class Stock:
                 title=f"Today's increase={daily_percentage}%",
                 returnfig=True,
                 volume_panel=2,
-                addplot=apds,
+                addplot=added_plots,
                 )
         else:
             fig, axes = mpf.plot(self.df, 
@@ -244,9 +261,9 @@ class Stock:
         rmin, rmax = self.get_ma_range_min_max(MA=20)
         rmin = round(rmin, 2)
         rmax = round(rmax, 2)
-        axes[0].axhline(y=rmin, color='r', linestyle='--')
-        axes[0].axhline(y=rmax, color='r', linestyle='--')
-        legend_names.extend([rmin, rmax])
+        #axes[0].axhline(y=rmin, color='r', linestyle='--')
+        #axes[0].axhline(y=rmax, color='r', linestyle='--')
+        #legend_names.extend([rmin, rmax])
         axes[0].legend(legend_names, loc="upper left")
         if savefig is True:
             if result_dir is None:
