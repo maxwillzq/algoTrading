@@ -4,6 +4,7 @@ from __future__ import (absolute_import, division, print_function,
 import logging
 import yaml
 import os
+import pandas as pd
 logger = logging.getLogger(__name__)
 
 def get_data_dict(file_name):
@@ -16,3 +17,8 @@ def get_data_dict(file_name):
 def get_data_dir():
     TOP_DIR = os.path.dirname(__file__)
     return TOP_DIR
+
+def get_SP500_list():
+    table=pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    df = table[0]
+    return df
