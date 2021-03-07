@@ -14,8 +14,9 @@ import os
 logger = logging.getLogger(__name__)
 
 class Stock:
-    def __init__(self, name):
+    def __init__(self, name, description=None):
         self.name = name
+        self.description = description
         self.markdown_notes = []
 
     def read_data(self, start = None, end = None):
@@ -178,7 +179,8 @@ class Stock:
         value is difference to this baseline
         """
         result_dict = {}
-        result_dict["name"] = self.name
+        result_dict['name'] = self.name
+        result_dict['description'] = self.description
         last = len(self.df) - 1
         for delta in [1, 5, 20, 60, 120, 240]:
             key_name = f"{delta}D%"
@@ -189,12 +191,14 @@ class Stock:
             else:
                 result_dict[key_name] = None
 
+        """
         for delta in [20, 60, 120]:
             key_name = f"bias_{delta}MA"
             df_EMA = self.df['Close'].rolling(delta).mean().round(2)
             value = (self.df['Close'].iloc[last] - df_EMA.iloc[last])/df_EMA.iloc[last] * 100
             value = round(value, 2)
             result_dict[key_name] = value
+        """
 
         # about volume
         df_volume_EMA = self.df['Volume'].rolling(20).mean().round(2)
@@ -254,10 +258,21 @@ class Stock:
         else:
             plt.show()
             return fig
+    
+    def to_markdown(self):
+        plotting_markdown_str = "\n\\pagebreak\n\n"
+        title = self.description if self.description else self.name
+        plotting_markdown_str += f"## {title}\n\n"
+        round_df = self.df.round(2)
+        plotting_markdown_str += f"{round_df.tail(5).to_markdown()}\n"
+        plotting_markdown_str += f"![{self.name}]({self.name}.png)\n\n\n"
+        return plotting_markdown_str
+
 
 class Fred:
-    def __init__(self, name):
+    def __init__(self, name, description=None):
         self.name = name
+        self.description = description
         self.markdown_notes = []
 
     def read_data(self, start = None, end = None):
@@ -274,28 +289,65 @@ class Fred:
         self.df = df
         return self.df
 
-    def plot(self, result_dir=None, savefig=False):
+    def plot(self, result_dir=None, apds=[], savefig=False):
         mav = [20, 60, 120, 200, 300]
         legend_names = [f"MA{item}" for item in mav]
         last = len(self.df) - 1
         delta = 1
         daily_percentage = (self.df[self.name].iloc[last] - self.df[self.name].iloc[last - delta])/self.df[self.name].iloc[last - delta] * 100
         daily_percentage = round(daily_percentage, 2)
-        fig = plt.figure(figsize=(12,9))
-        ax = self.df.plot( 
-            title=f"Today's increase={daily_percentage}%",
-            )
+        plt.figure(figsize=(12,9))
+        df = self.df.copy()
+        df["MA20"] = df[self.name].rolling(20).mean()
+        #df["MA20"].plot()
+        df.plot(y=[self.name])
+        plt.legend(loc='upper left', shadow=True, fontsize='x-large')
+        plt.grid()
+        plt.title(f"Today's increase={daily_percentage}%")
 
         if savefig is True:
             if result_dir is None:
                 result_dir = "."
             file_name = os.path.join(result_dir, self.name + ".png")
-            fig.savefig(file_name,dpi=300)
-            plt.close(fig)
+            plt.savefig(file_name,dpi=300)
+            plt.close()
             return file_name
         else:
             plt.show()
+            fig = plt.gcf()
             return fig
+    
+    def get_price_change_table(self):
+        """generate result_dict dict.
+        key is "5D%, 10D% ..." or moving average "20MA% .."
+        value is difference to this baseline
+        """
+        result_dict = {}
+        result_dict["name"] = self.name
+        if self.description:
+            result_dict["description"] = self.description
+        last = len(self.df) - 1
+        for delta in [1, 5, 20, 60, 120, 240]:
+            key_name = f"{delta}D%"
+            if last - delta > 0:
+                value = (self.df[self.name].iloc[last] - self.df[self.name].iloc[last - delta])/self.df[self.name].iloc[last - delta] * 100
+                value = round(value, 2)
+                result_dict[key_name] = value
+            else:
+                result_dict[key_name] = None
+        
+        return result_dict
+
+    def to_markdown(self):
+        plotting_markdown_str = "\n\\pagebreak\n\n"
+        title = self.description if self.description else self.name
+        plotting_markdown_str += f"## {title}\n\n"
+        round_df = self.df.round(2)
+        plotting_markdown_str += f"{round_df.tail(5).to_markdown()}\n"
+        plotting_markdown_str += f"![{self.name}]({self.name}.png)\n\n\n"
+        return plotting_markdown_str
+
+
 
 
     

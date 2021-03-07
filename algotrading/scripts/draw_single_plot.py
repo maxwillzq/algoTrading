@@ -72,10 +72,15 @@ def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
     result_str += "Quick summary:\n\n"
     result_str += f"- top 3 gainer today: { [name for name in price_change_table_pd.nlargest(3, '1D%').name] }\n"
     result_str += f"- top 3 loser today: { [name for name in price_change_table_pd.nsmallest(3, '1D%').name] }\n"
-    result_str += f"- top 3 volume increase stock today: { [name for name in price_change_table_pd.nlargest(3, 'vol_change%').name] }\n"
-    result_str += f"- top 3 volume decrease stock today: { [name for name in price_change_table_pd.nsmallest(3, 'vol_change%').name] }\n"
+    try:
+        result_str += f"- top 3 volume increase stock today: { [name for name in price_change_table_pd.nlargest(3, 'vol_change%').name] }\n"
+        result_str += f"- top 3 volume decrease stock today: { [name for name in price_change_table_pd.nsmallest(3, 'vol_change%').name] }\n"
+    except:
+        logger.info("no volume info")
     result_str += "\n\n"
-    result_str += price_change_table_pd.to_markdown()
+    #tmp = price_change_table_pd.drop(['name'],axis=1)
+    tmp = price_change_table_pd
+    result_str +=  tmp.to_markdown()
     return result_str, price_change_table_pd
 
 def main():
@@ -99,8 +104,8 @@ def main():
     )
     parser.add_argument(
         "--sort_by",
-        default="1D%",
-        help="sorted by which column.Default is 1D",
+        default="5D%",
+        help="sorted by which column.Default is 5D",
         type=str,
     )
     parser.add_argument(
@@ -112,6 +117,8 @@ def main():
 
     args = parser.parse_args()
     result_dir = args.result_dir
+    if not os.path.isdir(result_dir):
+        os.mkdir(result_dir)
     """
     if os.path.isdir(result_dir):
         shutil.rmtree(result_dir)
@@ -120,22 +127,29 @@ def main():
 
     end = dt.datetime.now()
     start = end - dt.timedelta(days=args.days)
+    stock_name_dict = {}
 
     stock_name_list = args.stock_list
     if stock_name_list == "shuping":
-        stock_name_list = shuping_holding_list
+        stock_name_dict = algotrading.data.get_data_dict("personal_stock_tickers.yaml")
     elif stock_name_list == "etf":
+        stock_name_dict = algotrading.data.get_data_dict("etf.yaml")
         stock_name_list = etf_name_list
-    elif stock_name_list == "all":
-        stock_name_list = default_stock_name_list
+    elif stock_name_list == "fred":
+        stock_name_dict = algotrading.data.get_data_dict("fred.yaml")
     else:
-        stock_name_list = [item for item in args.stock_list.split(',')]    
+        stock_name_list = [item for item in args.stock_list.split(',')]
+        for item in stock_name_list:
+            stock_name_dict[item] = item    
 
     markdown_str = f"# Stock analysis report ({end})\n"
     price_change_table = []
     plotting_dict = {}
-    for stock_name in stock_name_list:
-        stock = algotrading.stock.Stock(stock_name)
+    for stock_name in stock_name_dict:
+        if stock_name_list == "fred":
+            stock = algotrading.stock.Fred(stock_name, stock_name_dict[stock_name])
+        else:
+            stock = algotrading.stock.Stock(stock_name, stock_name_dict[stock_name])
         stock.read_data(start=start, end=end)
         price_change_info = stock.get_price_change_table()
         price_change_table.append(price_change_info)
@@ -143,16 +157,11 @@ def main():
         # generate the plot if flag is true
         if args.with_chart == "Yes":
             apds = []
-            subplots = stock.calc_buy_sell_signal()
-            apds.extend(subplots)
-            stock.plot(result_dir, apds, savefig=True)
-        
-            round_df = stock.df.round(2)
-            plotting_markdown_str = "\n\\pagebreak\n\n"
-            plotting_markdown_str += f"## {stock_name}\n\n"
-            plotting_markdown_str += f"{round_df.tail(5).to_markdown()}\n"
-            plotting_markdown_str += f"![{stock_name}]({stock_name}.png)\n\n\n"
-            plotting_dict[stock_name] = plotting_markdown_str
+            if stock_name_list != "fred":
+                subplots = stock.calc_buy_sell_signal()
+                apds.extend(subplots)
+            stock.plot(result_dir, apds, savefig=True)        
+            plotting_dict[stock_name] = stock.to_markdown()
 
     # Add summary to report
     tmp_str, price_change_table_pd = generate_md_summary_from_changed_table(price_change_table, args.sort_by)
@@ -166,12 +175,15 @@ def main():
             #markdown_str += price_change_table_pd.loc[ind].to_markdown()
 
     # Generate markdown and pdf
+    date_str = end.strftime("%m_%d_%Y")
     if args.stock_list == "shuping":
-        output_file_name = "shuping_daily_plot"
+        output_file_name = f"shuping_daily_plot_{date_str}"
     elif args.stock_list == "etf":
-        output_file_name = "etf_daily_plot"
+        output_file_name = f"etf_daily_plot_{date_str}"
+    elif args.stock_list == "fred":
+        output_file_name = f"fred_daily_plot_{date_str}"
     else: 
-        output_file_name = "daily_plot"
+        output_file_name = f"daily_plot_{date_str}"
     md_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".md"))
     with open(md_file_path, 'w') as f:
         f.write(markdown_str)
