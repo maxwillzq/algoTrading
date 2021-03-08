@@ -29,8 +29,11 @@ class Stock:
         logger.info(f"today is {end}")
         if not start:
             start = dt.datetime(end.year-2, end.month, end.day)
-        
-        df = web.DataReader(self.name, 'yahoo', start, end)
+        try:
+            df = web.DataReader(self.name, 'yahoo', start, end)
+        except:
+            logger.error(f"fail to get data for symbol {self.name}")
+            raise RuntimeError()
         df.index = pd.to_datetime(df.index)
         self.df = df
         return self.df

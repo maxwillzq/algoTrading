@@ -137,6 +137,12 @@ def main():
         stock_name_list = etf_name_list
     elif stock_name_list == "fred":
         stock_name_dict = algotrading.data.get_data_dict("fred.yaml")
+    elif stock_name_list == "sp500":
+        tmp_df = algotrading.data.get_SP500_list()
+        for index, row in tmp_df.iterrows():
+            name = row['Symbol']
+            name = name.replace('.', '-')
+            stock_name_dict[name] = name
     else:
         stock_name_list = [item for item in args.stock_list.split(',')]
         for item in stock_name_list:
@@ -182,6 +188,8 @@ def main():
         output_file_name = f"etf_daily_plot_{date_str}"
     elif args.stock_list == "fred":
         output_file_name = f"fred_daily_plot_{date_str}"
+    elif args.stock_list == "sp500":
+        output_file_name = f"sp500_daily_plot_{date_str}"
     else: 
         output_file_name = f"daily_plot_{date_str}"
     md_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".md"))
