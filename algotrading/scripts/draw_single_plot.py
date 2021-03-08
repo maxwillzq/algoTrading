@@ -139,9 +139,8 @@ def main():
         stock_name_dict = algotrading.data.get_data_dict("fred.yaml")
     elif stock_name_list == "sp500":
         tmp_df = algotrading.data.get_SP500_list()
-        for index, row in tmp_df.iterrows():
-            name = row['Symbol']
-            name = name.replace('.', '-')
+        for index in range(10):
+            name = tmp_df['Symbol'].iloc[index]
             stock_name_dict[name] = name
     else:
         stock_name_list = [item for item in args.stock_list.split(',')]

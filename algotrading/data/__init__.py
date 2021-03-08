@@ -21,4 +21,5 @@ def get_data_dir():
 def get_SP500_list():
     table=pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
     df = table[0]
+    df['Symbol'] = df['Symbol'].apply(lambda str: str.replace('.', '-'))
     return df
