@@ -214,6 +214,8 @@ class Stock:
         return result_dict
     
     def plot(self, result_dir=None, apds=[], savefig=False):
+        
+        df = self.df.copy()
         mav = [20, 60, 120]
         colors = ['r', 'g', 'b', 'y']
         legend_names = []
@@ -221,8 +223,8 @@ class Stock:
         for index in range(len(mav)):
             item = mav[index]
             color = colors[index]
-            df_sma = self.df['Close'].rolling(item).mean()
-            df_ema = self.df['Close'].ewm(span=item, adjust=False).mean()
+            df_sma = df['Close'].rolling(item).mean()
+            df_ema = df['Close'].ewm(span=item, adjust=False).mean()
             added_plots.append(
                 mpf.make_addplot(df_sma, color=color)
             )
@@ -232,12 +234,12 @@ class Stock:
             )
             legend_names.append(f"EMA{item}")
         added_plots.extend(apds)
-        last = len(self.df) - 1
+        last = len(df) - 1
         delta = 1
-        daily_percentage = (self.df['Close'].iloc[last] - self.df['Close'].iloc[last - delta])/self.df['Close'].iloc[last - delta] * 100
+        daily_percentage = (df['Close'].iloc[last] - df['Close'].iloc[last - delta])/df['Close'].iloc[last - delta] * 100
         daily_percentage = round(daily_percentage, 2)
         if len(apds) > 0:
-            fig, axes = mpf.plot(self.df, 
+            fig, axes = mpf.plot(df, 
                 type='candle', 
                 style="yahoo",
                 mav=mav, 
@@ -249,7 +251,7 @@ class Stock:
                 addplot=added_plots,
                 )
         else:
-            fig, axes = mpf.plot(self.df, 
+            fig, axes = mpf.plot(df, 
                 type='candle', 
                 style="yahoo",
                 mav=mav, 
@@ -267,6 +269,8 @@ class Stock:
         #axes[0].axhline(y=rmin, color='r', linestyle='--')
         #axes[0].axhline(y=rmax, color='r', linestyle='--')
         #legend_names.extend([rmin, rmax])
+        #axes[0].axvline(x=self.df.index[-5:-1], linewidth = 10, color='k', linestyle='--')
+
         axes[0].legend(legend_names, loc="upper left")
         if savefig is True:
             if result_dir is None:

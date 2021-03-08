@@ -139,7 +139,8 @@ def main():
         stock_name_dict = algotrading.data.get_data_dict("fred.yaml")
     elif stock_name_list == "sp500":
         tmp_df = algotrading.data.get_SP500_list()
-        for index in range(10):
+        tmp_df = tmp_df[tmp_df['GICS Sector'] == "Information Technology"]
+        for index in range(len(tmp_df)):
             name = tmp_df['Symbol'].iloc[index]
             stock_name_dict[name] = name
     else:
@@ -165,7 +166,10 @@ def main():
             if stock_name_list != "fred":
                 subplots = stock.calc_buy_sell_signal()
                 apds.extend(subplots)
-            stock.plot(result_dir, apds, savefig=True)        
+            try:
+                stock.plot(result_dir, apds, savefig=True)
+            except:
+                raise RuntimeError(f"fail to plot {stock.name}")      
             plotting_dict[stock_name] = stock.to_markdown()
 
     # Add summary to report
