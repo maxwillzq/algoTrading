@@ -84,12 +84,6 @@ class Stock:
                             )
         idf['low_trend'] = reg[0] * idf['Date'] + reg[1]
 
-        #idf['Close'].plot()
-        #idf['high_trend'].plot()
-        #idf['low_trend'].plot()
-        #idf["Prediction"].plot()
-        #plt.show()
-
         apds.extend([
                     mpf.make_addplot(idf["high_trend"],type="line", marker='^', color='r'),
                     mpf.make_addplot(idf["low_trend"], color='r')])
@@ -112,9 +106,6 @@ class Stock:
             predict_price = round(predict_price, 2)
             result[days] = predict_price
         
-        #idf['Close'].plot()
-        #idf["Prediction"].plot()
-        #plt.show()
         apds = []
         apds.extend([
                     mpf.make_addplot(idf["Prediction"], type="scatter")
@@ -280,7 +271,6 @@ class Stock:
             plt.close(fig)
             return file_name
         else:
-            plt.show()
             return fig
     
     def to_markdown(self):
@@ -337,7 +327,6 @@ class Fred:
             plt.close()
             return file_name
         else:
-            plt.show()
             fig = plt.gcf()
             return fig
     
