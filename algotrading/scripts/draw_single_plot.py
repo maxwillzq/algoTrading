@@ -98,7 +98,7 @@ def main():
     )
     parser.add_argument(
         "--days",
-        default=1000,
+        default=365,
         help="how many days, default is 300",
         type=int,
     )
