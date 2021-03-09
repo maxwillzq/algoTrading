@@ -213,9 +213,9 @@ class Stock:
         added_plots = []
         for index in range(len(mav)):
             item = mav[index]
+            color = colors[index]
             if len(df) <= item:
                 break
-            color = colors[index]
             df_sma = df['Close'].rolling(item).mean()
             df_ema = df['Close'].ewm(span=item, adjust=False).mean()
             added_plots.append(
@@ -235,7 +235,6 @@ class Stock:
             fig, axes = mpf.plot(df, 
                 type='candle', 
                 style="yahoo",
-                mav=mav, 
                 volume=True,
                 figsize=(12, 9), 
                 title=f"Today's increase={daily_percentage}%",
@@ -247,7 +246,6 @@ class Stock:
             fig, axes = mpf.plot(df, 
                 type='candle', 
                 style="yahoo",
-                mav=mav, 
                 volume=True,
                 figsize=(12, 9), 
                 title=f"Today's increase={daily_percentage}%",
@@ -259,10 +257,9 @@ class Stock:
         rmin, rmax = self.get_ma_range_min_max(MA=20)
         rmin = round(rmin, 2)
         rmax = round(rmax, 2)
-        axes[0].axhline(y=rmin, color='r', linestyle='--')
-        axes[0].axhline(y=rmax, color='r', linestyle='--')
+        axes[0].axhline(y=rmin, color='y', linestyle='--')
+        axes[0].axhline(y=rmax, color='y', linestyle='--')
         legend_names.extend([rmin, rmax])
-        #axes[0].axvline(x=self.df.index[-5:-1], linewidth = 10, color='k', linestyle='--')
 
         axes[0].legend(legend_names, loc="upper left")
         if savefig is True:
