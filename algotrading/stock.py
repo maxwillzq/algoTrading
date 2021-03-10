@@ -123,8 +123,8 @@ class Stock:
         apds.extend([
                     mpf.make_addplot(histogram,type='bar',width=0.7,panel=1,
                                     color='dimgray',alpha=1,secondary_y=False),
-                    mpf.make_addplot(macd,panel=1,color='fuchsia',secondary_y=True),
-                    mpf.make_addplot(signal,panel=1,color='b',secondary_y=True),
+                    mpf.make_addplot(macd,panel=2,color='fuchsia',secondary_y=True),
+                    mpf.make_addplot(signal,panel=2,color='b',secondary_y=True),
                 ])
 
         idf['20_EMA'] = idf['Close'].rolling(20).mean()
@@ -231,7 +231,7 @@ class Stock:
         delta = 1
         daily_percentage = (df['Close'].iloc[last] - df['Close'].iloc[last - delta])/df['Close'].iloc[last - delta] * 100
         daily_percentage = round(daily_percentage, 2)
-        if len(apds) > 0:
+        if len(added_plots) > 0:
             fig, axes = mpf.plot(df, 
                 type='candle', 
                 style="yahoo",
@@ -239,7 +239,7 @@ class Stock:
                 figsize=(12, 9), 
                 title=f"Today's increase={daily_percentage}%",
                 returnfig=True,
-                volume_panel=2,
+                volume_panel=1,
                 addplot=added_plots,
                 )
         else:
