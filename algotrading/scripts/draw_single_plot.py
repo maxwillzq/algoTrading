@@ -115,6 +115,13 @@ def main():
         type=str,
     )
 
+    parser.add_argument(
+        "--with_density",
+        default="No",
+        help="flag control output individual stock density chart. Yes or No",
+        type=str,
+    )
+
     args = parser.parse_args()
     result_dir = args.result_dir
     if not os.path.isdir(result_dir):
@@ -168,9 +175,10 @@ def main():
                 apds.extend(subplots)
             try:
                 stock.plot(result_dir, apds)
-                stock.plot_density(result_dir)
             except:
-                raise RuntimeError(f"fail to plot {stock.name}")      
+                raise RuntimeError(f"fail to plot {stock.name}") 
+            if args.with_density == "Yes":
+                stock.plot_density(result_dir)     
             plotting_dict[stock_name] = stock.to_markdown()
 
     # Add summary to report
