@@ -9,23 +9,6 @@ import logging
 import numpy as np
 logger = logging.getLogger(__name__)
 
-def read_stock_data_to_df(stock_name, start = None, end = None):
-  """Read Stock Data from Yahoo Finance
-  """
-  if end is None:
-    end = dt.datetime.now()
-  logger.info(f"today is {end}")
-  if not start:
-    start = dt.datetime(end.year-2, end.month, end.day)
-  df = web.DataReader(stock_name, 'yahoo', start, end)
-  #df.to_csv(stock_name + '.csv')
-  #df = pd.read_csv(stock_name + '.csv')
-  #print(df.index)
-  #print(df.head(3))
-  #df.set_index('Date', inplace=True)
-  df.index = pd.to_datetime(df.index)
-  return df
-
 def draw_regular_plot(df, stock_name=None, param={}):
   plt.figure(figsize=(12,9))
   top = plt.subplot2grid((12,9), (0, 0), rowspan=10, colspan=9)

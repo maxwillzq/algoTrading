@@ -17,7 +17,10 @@ class Stock:
     def __init__(self, name, description=None):
         self.name = name
         self.description = description
-        self.markdown_notes = []
+        self.markdown_notes = "\n\\pagebreak\n\n"
+        title = self.description if self.description else self.name
+        self.markdown_notes += f"## {title}\n\n"
+
 
     def read_data(self, start = None, end = None):
         """Read Stock Data from Yahoo Finance
@@ -35,6 +38,8 @@ class Stock:
             logger.error(f"fail to get data for symbol {self.name}")
             raise RuntimeError()
         df.index = pd.to_datetime(df.index)
+        round_df = df.round(2)
+        self.markdown_notes += f"{round_df.tail(5).to_markdown()}\n"
         self.df = df
         return self.df
     
@@ -123,8 +128,8 @@ class Stock:
         apds.extend([
                     mpf.make_addplot(histogram,type='bar',width=0.7,panel=1,
                                     color='dimgray',alpha=1,secondary_y=False),
-                    mpf.make_addplot(macd,panel=2,color='fuchsia',secondary_y=True),
-                    mpf.make_addplot(signal,panel=2,color='b',secondary_y=True),
+                    mpf.make_addplot(macd,panel=1,color='fuchsia',secondary_y=True),
+                    mpf.make_addplot(signal,panel=1,color='b',secondary_y=True),
                 ])
 
         idf['20_EMA'] = idf['Close'].rolling(20).mean()
@@ -204,7 +209,7 @@ class Stock:
         
         return result_dict
     
-    def plot(self, result_dir=None, apds=[], savefig=False):
+    def plot(self, result_dir=None, apds=[]):
         
         df = self.df.copy()
         mav = [20, 60, 120]
@@ -239,7 +244,7 @@ class Stock:
                 figsize=(12, 9), 
                 title=f"Today's increase={daily_percentage}%",
                 returnfig=True,
-                volume_panel=1,
+                volume_panel=2,
                 addplot=added_plots,
                 )
         else:
@@ -254,7 +259,7 @@ class Stock:
                 )
 
         # Configure chart legend and title
-        rmin, rmax = self.get_ma_range_min_max(MA=20)
+        rmin, rmax = self.get_ma_range_min_max(MA=60)
         rmin = round(rmin, 2)
         rmax = round(rmax, 2)
         axes[0].axhline(y=rmin, color='y', linestyle='--')
@@ -262,31 +267,50 @@ class Stock:
         legend_names.extend([rmin, rmax])
 
         axes[0].legend(legend_names, loc="upper left")
-        if savefig is True:
-            if result_dir is None:
-                result_dir = "."
+        if result_dir is not None:
             file_name = os.path.join(result_dir, self.name + ".png")
             fig.savefig(file_name,dpi=300)
             plt.close(fig)
+            self.markdown_notes += f"![{self.name}]({self.name}.png)\n\n\n"
             return file_name
         else:
             return fig
     
     def to_markdown(self):
-        plotting_markdown_str = "\n\\pagebreak\n\n"
-        title = self.description if self.description else self.name
-        plotting_markdown_str += f"## {title}\n\n"
-        round_df = self.df.round(2)
-        plotting_markdown_str += f"{round_df.tail(5).to_markdown()}\n"
-        plotting_markdown_str += f"![{self.name}]({self.name}.png)\n\n\n"
-        return plotting_markdown_str
-
+        return self.markdown_notes
+    
+    def plot_density(self, result_dir=None):
+        legend_names = []
+        df = self.df
+        plt.figure(figsize=(12,9))
+        axes = sns.distplot(df['Adj Close'].dropna(), bins=30, color='purple', vertical=True)
+        raverage = sum(df['Adj Close'] * df.Volume)/sum(df.Volume)
+        raverage = round(raverage, 2)
+        today_price = df['Adj Close'].iloc[-1].round(2)
+        axes.axhline(y=raverage, color='r', linestyle='--')
+        axes.axhline(y=today_price, color='g')
+        legend_names.extend(["Volume", f"average={raverage}", f"today={today_price}"])
+        axes.legend(legend_names, loc="upper right")
+        #step = param.get("step", 5)
+        #plt.yticks(np.arange(rmin, rmax, step))
+        #plt.grid()
+        fig = plt.gcf()
+        if result_dir is not None:
+            file_name = os.path.join(result_dir, self.name + "_density.png")
+            fig.savefig(file_name,dpi=300)
+            plt.close(fig)
+            self.markdown_notes += f"![{self.name}]({self.name}_density.png)\n\n\n"
+            return file_name
+        else:
+            return fig
 
 class Fred:
     def __init__(self, name, description=None):
         self.name = name
         self.description = description
-        self.markdown_notes = []
+        self.markdown_notes = "\n\\pagebreak\n\n"
+        title = self.description if self.description else self.name
+        self.markdown_notes += f"## {title}\n\n"
 
     def read_data(self, start = None, end = None):
         """Read Stock Data from Yahoo Finance
@@ -299,10 +323,12 @@ class Fred:
         
         df = web.DataReader(self.name, 'fred', start, end)
         df.index = pd.to_datetime(df.index)
+        round_df = df.round(2)
+        self.markdown_notes += f"{round_df.tail(5).to_markdown()}\n"
         self.df = df
         return self.df
 
-    def plot(self, result_dir=None, apds=[], savefig=False):
+    def plot(self, result_dir=None, apds=[]):
         mav = [20, 60, 120, 200, 300]
         legend_names = [f"MA{item}" for item in mav]
         last = len(self.df) - 1
@@ -318,9 +344,7 @@ class Fred:
         plt.grid()
         plt.title(f"Today's increase={daily_percentage}%")
 
-        if savefig is True:
-            if result_dir is None:
-                result_dir = "."
+        if result_dir is not None:
             file_name = os.path.join(result_dir, self.name + ".png")
             plt.savefig(file_name,dpi=300)
             plt.close()
@@ -351,20 +375,4 @@ class Fred:
         return result_dict
 
     def to_markdown(self):
-        plotting_markdown_str = "\n\\pagebreak\n\n"
-        title = self.description if self.description else self.name
-        plotting_markdown_str += f"## {title}\n\n"
-        round_df = self.df.round(2)
-        plotting_markdown_str += f"{round_df.tail(5).to_markdown()}\n"
-        plotting_markdown_str += f"![{self.name}]({self.name}.png)\n\n\n"
-        return plotting_markdown_str
-
-
-
-
-    
-    
-
-
-
-
+        return self.markdown_notes

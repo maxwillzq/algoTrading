@@ -167,7 +167,8 @@ def main():
                 subplots = stock.calc_buy_sell_signal()
                 apds.extend(subplots)
             try:
-                stock.plot(result_dir, apds, savefig=True)
+                stock.plot(result_dir, apds)
+                stock.plot_density(result_dir)
             except:
                 raise RuntimeError(f"fail to plot {stock.name}")      
             plotting_dict[stock_name] = stock.to_markdown()
