@@ -22,50 +22,13 @@ import shutil
 
 logger = logging.getLogger(__name__)
 #start = dt.datetime(end.year - 1, end.month, end.day)
-shuping_holding_list = [
-    'ADBE', 'U', 'AMC', 'BABA', 'FB', 'COST', 'CRM', 'QCOM', 'TIGR', 'ARKK', 'ARKG',
-    'AMD', 'BB', "CCL",
-    "MMM",  "C", "COST", "LMT",
-    'TSM', 'ASML', 'AMAT', 'PDD', 'JD',
-    "BABA", "FB", "AMZN", "AAPL", "GOOG", "NFLX", "AMD", "MSFT",
-    'PLTR', 'IPOE', "BEKE", "QQQ", "SPY",
-]
-etf_name_list = [
-    "VTI", "DIA", "OEF", "MDY", "SPY",  "RSP", "QQQ", "QTEC", "IWB", "IWM", # Broad Market
-    "MTUM", "VLUE", "QUAL", "USMV", # Factors
-    "IWF", "IWD", "IVW", "IVE", # Gr KW", "ARKQ", "PBW", "BLOK", "SNSR", # Thermatic
-    "XLC", "XLY", "XHB", "XRT", "XLP",
-    "XLE", "XOP", "OIH", "TAN", "URA", 
-    "XLF", "KBE", "KIE", "IAI",
-    "IBB", "IHI", "IHF", "XPH",
-    "XLI", "ITA", "IYT", "JETS", 
-    "XLB",  
-    "XME", "LIT", "REMX", "IYM",
-    "XLRE", "VNQ", "VNQI", "REM", 
-    "XLK", "VGT", "FDN", "SOCL", "IGV","SOXX", "XLU",
-    "GLD",
-    "^TNX", # US 10Y Yield
-    "DX-Y.NYB", # US Dollar/USDX - Index - Cash (DX-Y.NYB)
-    "USDCNY=X", # USD/CNY
-    "SI=F", # Silver
-    "GC=F", # Gold
-    "CL=F", # Oil
-    #"GDX", "XLV",
-    "ARKK", "ARKG","ARKF"
-    ]
-
 default_stock_name_list = []
 
 # User setup area: choose stock symbol list
-shuping_holding_list = list(OrderedDict.fromkeys(shuping_holding_list))
-etf_name_list = list(OrderedDict.fromkeys(etf_name_list))
-default_stock_name_list.extend(shuping_holding_list)
-default_stock_name_list.extend(etf_name_list)
-default_stock_name_list = list(OrderedDict.fromkeys(default_stock_name_list))
-
 def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
     price_change_table_pd = pd.DataFrame(price_change_table)
-    price_change_table_pd = price_change_table_pd.sort_values([sort_by])
+    sort_by_list = sort_by.split(',')
+    price_change_table_pd = price_change_table_pd.sort_values(sort_by_list)
 
     result_str = ""
     result_str += "## price change table summary\n\n"
@@ -98,13 +61,13 @@ def main():
     )
     parser.add_argument(
         "--days",
-        default=365,
+        default=250,
         help="how many days, default is 300",
         type=int,
     )
     parser.add_argument(
         "--sort_by",
-        default="5D%",
+        default="mid_term,short_term,5D%,1D%",
         help="sorted by which column.Default is 5D",
         type=str,
     )
@@ -133,15 +96,15 @@ def main():
     """
 
     end = dt.datetime.now()
-    start = end - dt.timedelta(days=args.days)
     stock_name_dict = {}
 
     stock_name_list = args.stock_list
     if stock_name_list == "shuping":
         stock_name_dict = algotrading.data.get_data_dict("personal_stock_tickers.yaml")
+    elif stock_name_list == "keyao":
+        stock_name_dict = algotrading.data.get_data_dict("keyao_stock_tickers.yaml")
     elif stock_name_list == "etf":
         stock_name_dict = algotrading.data.get_data_dict("etf.yaml")
-        stock_name_list = etf_name_list
     elif stock_name_list == "fred":
         stock_name_dict = algotrading.data.get_data_dict("fred.yaml")
     elif stock_name_list == "sp500":
@@ -163,7 +126,7 @@ def main():
             stock = algotrading.stock.Fred(stock_name, stock_name_dict[stock_name])
         else:
             stock = algotrading.stock.Stock(stock_name, stock_name_dict[stock_name])
-        stock.read_data(start=start, end=end)
+        stock.read_data(days=args.days)
         price_change_info = stock.get_price_change_table()
         price_change_table.append(price_change_info)
 
@@ -174,13 +137,22 @@ def main():
                 subplots = stock.calc_buy_sell_signal()
                 apds.extend(subplots)
             try:
-                stock.plot(result_dir, apds)
+                if args.days >= 250:
+                    stock.plot(result_dir, apds, 
+                    mav=[20, 60, 120], image_name=stock_name + "_long"
+                    )
+                else:
+                    stock.plot(result_dir, apds, 
+                    mav=[5, 10, 20], image_name=stock_name + "_short",
+                    add_pivot=True
+                    )
             except:
                 raise RuntimeError(f"fail to plot {stock.name}") 
             if args.with_density == "Yes":
                 stock.plot_density(result_dir)     
             plotting_dict[stock_name] = stock.to_markdown()
 
+    
     # Add summary to report
     tmp_str, price_change_table_pd = generate_md_summary_from_changed_table(price_change_table, args.sort_by)
     markdown_str += tmp_str
@@ -196,6 +168,8 @@ def main():
     date_str = end.strftime("%m_%d_%Y")
     if args.stock_list == "shuping":
         output_file_name = f"shuping_daily_plot_{date_str}"
+    elif args.stock_list == "keyao":
+        output_file_name = f"keyao_daily_plot_{date_str}"
     elif args.stock_list == "etf":
         output_file_name = f"etf_daily_plot_{date_str}"
     elif args.stock_list == "fred":

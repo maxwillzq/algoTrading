@@ -22,24 +22,21 @@ class Stock:
         self.markdown_notes += f"## {title}\n\n"
 
 
-    def read_data(self, start = None, end = None):
+    def read_data(self, *args, **kwargs):
         """Read Stock Data from Yahoo Finance
         """
-        if end is None:
-            end = dt.datetime.now()
-        if start is None:
-            start =  end - dt.timedelta(365)
+        end = dt.datetime.now()
+        start =  end - dt.timedelta(kwargs.get("days", 365))
         logger.info(f"today is {end}")
-        if not start:
-            start = dt.datetime(end.year-2, end.month, end.day)
         try:
             df = web.DataReader(self.name, 'yahoo', start, end)
         except:
             logger.error(f"fail to get data for symbol {self.name}")
             raise RuntimeError()
         df.index = pd.to_datetime(df.index)
-        round_df = df.round(2)
-        self.markdown_notes += f"{round_df.tail(5).to_markdown()}\n"
+        df.drop(columns=['Adj Close'], inplace=True)
+        volume_mean = df['Volume'].mean()
+        df['Volume'] = df['Volume']/volume_mean
         self.df = df
         return self.df
     
@@ -128,7 +125,7 @@ class Stock:
         apds.extend([
                     mpf.make_addplot(histogram,type='bar',width=0.7,panel=1,
                                     color='dimgray',alpha=1,secondary_y=False),
-                    mpf.make_addplot(macd,panel=1,color='fuchsia',secondary_y=True),
+                    mpf.make_addplot(macd, panel=1,color='fuchsia',secondary_y=False),
                     mpf.make_addplot(signal,panel=1,color='b',secondary_y=True),
                 ])
 
@@ -138,10 +135,10 @@ class Stock:
         idf['Signal'] = 0.0  
         idf['Signal'] = np.where(macd > signal + 0.02, 1.0, 0.0)
         idf['Position'] = idf['Signal'].diff()
-        bias_120 = (idf['Close'] - idf['120_EMA']) / idf['120_EMA'] * 100
+        bias_60 = (idf['Close'] - idf['60_EMA']) / idf['60_EMA'] * 100
         apds.extend(
             [
-                mpf.make_addplot(bias_120,panel=3,type='bar',width=0.7,color='b',ylabel="bias_120", secondary_y=False),
+                mpf.make_addplot(bias_60,panel=3,type='bar',width=0.7,color='b',ylabel="bias_60", secondary_y=False),
             ]
         )
 
@@ -182,7 +179,7 @@ class Stock:
         result_dict['name'] = self.name
         result_dict['description'] = self.description
         last = len(self.df) - 1
-        for delta in [1, 5, 20, 60, 120, 240]:
+        for delta in [1, 5, 20, 60]:
             key_name = f"{delta}D%"
             if last - delta > 0:
                 value = (self.df['Close'].iloc[last] - self.df['Close'].iloc[last - delta])/self.df['Close'].iloc[last - delta] * 100
@@ -191,28 +188,56 @@ class Stock:
             else:
                 result_dict[key_name] = None
 
-        """
-        for delta in [20, 60, 120]:
-            key_name = f"bias_{delta}MA"
-            df_EMA = self.df['Close'].rolling(delta).mean().round(2)
-            value = (self.df['Close'].iloc[last] - df_EMA.iloc[last])/df_EMA.iloc[last] * 100
-            value = round(value, 2)
-            result_dict[key_name] = value
-        """
+        df = self.df.copy()
+        df["SMA5"] = df['Close'].rolling(5).mean().round(2)
+        df["SMA10"] = df['Close'].rolling(10).mean().round(2)
+        df["SMA20"] = df['Close'].rolling(20).mean().round(2)
+        df["SMA60"] = df['Close'].rolling(60).mean().round(2)
+        df["SMA120"] = df['Close'].rolling(120).mean().round(2)
+
+        # short-term signal
+        if df["SMA5"].iloc[-1] > df["SMA10"].iloc[-1] > df["SMA20"].iloc[-1]:
+            result_dict["short_term"] = "bullish"
+        elif df["SMA20"].iloc[-1] < df["SMA60"].iloc[-1] < df["SMA120"].iloc[-1]:
+            result_dict["short_term"] = "bearish"
+        else:
+            result_dict["short_term"] = "undefined"
+
+        # mid-term signal
+        if df["SMA20"].iloc[-1] > df["SMA60"].iloc[-1] > df["SMA120"].iloc[-1]:
+            result_dict["mid_term"] = "bullish"
+        elif df["SMA20"].iloc[-1] < df["SMA60"].iloc[-1] < df["SMA120"].iloc[-1]:
+            result_dict["mid_term"] = "bearish"
+        else:
+            result_dict["mid_term"] = "undefined"
+
+        self.markdown_notes += f"\n\n mid_term: {result_dict['mid_term']}, short_term: {result_dict['short_term']}\n\n"
+        self.markdown_notes += f"\n\n{df.tail(5).to_markdown()}\n\n"
+
+        # bias 
+        bias_60 = (df['Close'] - df['SMA60']) / df['SMA60'] * 100
+        bias_60 = bias_60.round(2)
+
+        #bias_60_min_max_value = max(max(bias_60),  abs(min(bias_60)))
+        #bias_60 = bias_60 / bias_60_min_max_value
+        result_dict["bias_60"] = f"{bias_60.iloc[-1]}/{bias_60.min()}/{bias_60.max()}"
 
         # about volume
-        df_volume_EMA = self.df['Volume'].rolling(20).mean().round(2)
+        df_volume_mean = self.df['Volume'].mean()
         key_name = "vol_change%"
-        value = (self.df['Volume'].iloc[last] - df_volume_EMA.iloc[last])/df_volume_EMA.iloc[last] * 100
+        value = (self.df['Volume'].tail(5).sum() - df_volume_mean)/df_volume_mean * 20
         value = round(value, 2)
         result_dict[key_name] = value
-        
-        return result_dict
+        self.price_change_table = result_dict
+
+        return self.price_change_table
     
-    def plot(self, result_dir=None, apds=[]):
+    def plot(self, result_dir=None, apds=[], **kwargs):
         
         df = self.df.copy()
         mav = [20, 60, 120]
+        if 'mav' in kwargs:
+            mav = kwargs['mav']
         colors = ['r', 'g', 'b', 'y']
         legend_names = []
         added_plots = []
@@ -265,18 +290,31 @@ class Stock:
         axes[0].axhline(y=rmin, color='y', linestyle='--')
         axes[0].axhline(y=rmax, color='y', linestyle='--')
         legend_names.extend([rmin, rmax])
-
         axes[0].legend(legend_names, loc="upper left")
+
+        # Get pivot and plot
+        if 'add_pivot' in kwargs:
+            result = self.get_pivot()
+            for pivot in result:
+                axes[0].axhline(y=self.df["High"].iloc[pivot], color='r', linestyle='-')
+
+        image_name = self.name
+        if "image_name" in kwargs:
+            image_name = kwargs['image_name']
         if result_dir is not None:
-            file_name = os.path.join(result_dir, self.name + ".png")
+            file_name = os.path.join(result_dir, image_name + ".png")
             fig.savefig(file_name,dpi=300)
             plt.close(fig)
-            self.markdown_notes += f"![{self.name}]({self.name}.png)\n\n\n"
+            self.markdown_notes += "\n\n \pagebreak\n\n"
+            self.markdown_notes += f"![{image_name}]({image_name}.png)\n\n\n"
             return file_name
         else:
-            return fig
+            return axes
     
     def to_markdown(self):
+        # 空头排列还是多头排列
+
+
         return self.markdown_notes
     
     def plot_density(self, result_dir=None):
@@ -302,7 +340,21 @@ class Stock:
             self.markdown_notes += f"![{self.name}]({self.name}_density.png)\n\n\n"
             return file_name
         else:
-            return fig
+            return axes
+    
+    def get_pivot(self):
+
+        interval = 5
+        result = []
+        for i in range(interval, len(self.df) - interval):
+            currentMax = max(self.df["Volume"].iloc[i - interval:i + interval])
+            if currentMax == self.df["Volume"].iloc[i] and currentMax > 1.5:
+                result.append(i)
+            
+        result_df = self.df.iloc[result]
+        result_df = result_df.sort_values(["Close", "Volume"], ascending=False)
+        self.markdown_notes += f"\n\n{result_df.to_markdown()}\n\n"
+        return result    
 
 class Fred:
     def __init__(self, name, description=None):
@@ -312,33 +364,25 @@ class Fred:
         title = self.description if self.description else self.name
         self.markdown_notes += f"## {title}\n\n"
 
-    def read_data(self, start = None, end = None):
+    def read_data(self, *args, **kwargs):
         """Read Stock Data from Yahoo Finance
         """
-        if end is None:
-            end = dt.datetime.now()
-        logger.info(f"today is {end}")
-        if not start:
-            start = dt.datetime(end.year-2, end.month, end.day)
-        
+        end = dt.datetime.now()
+        start =  end - dt.timedelta(kwargs.get("days", 365))        
         df = web.DataReader(self.name, 'fred', start, end)
         df.index = pd.to_datetime(df.index)
-        round_df = df.round(2)
+        round_df = df.round(4)
         self.markdown_notes += f"{round_df.tail(5).to_markdown()}\n"
         self.df = df
         return self.df
 
     def plot(self, result_dir=None, apds=[]):
-        mav = [20, 60, 120, 200, 300]
-        legend_names = [f"MA{item}" for item in mav]
         last = len(self.df) - 1
         delta = 1
         daily_percentage = (self.df[self.name].iloc[last] - self.df[self.name].iloc[last - delta])/self.df[self.name].iloc[last - delta] * 100
         daily_percentage = round(daily_percentage, 2)
         plt.figure(figsize=(12,9))
         df = self.df.copy()
-        df["MA20"] = df[self.name].rolling(20).mean()
-        #df["MA20"].plot()
         df.plot(y=[self.name])
         plt.legend(loc='upper left', shadow=True, fontsize='x-large')
         plt.grid()
@@ -348,6 +392,7 @@ class Fred:
             file_name = os.path.join(result_dir, self.name + ".png")
             plt.savefig(file_name,dpi=300)
             plt.close()
+            self.markdown_notes += f"![{self.name}]({self.name}.png)\n\n\n"
             return file_name
         else:
             fig = plt.gcf()
