@@ -85,6 +85,13 @@ def main():
         type=str,
     )
 
+    parser.add_argument(
+        "--pivot_limit",
+        default=1.5,
+        help="flag control output pivot lines",
+        type=float,
+    )
+
     args = parser.parse_args()
     result_dir = args.result_dir
     if not os.path.isdir(result_dir):
@@ -144,7 +151,8 @@ def main():
                 else:
                     stock.plot(result_dir, apds, 
                     mav=[5, 10, 20], image_name=stock_name + "_short",
-                    add_pivot=True
+                    add_pivot=True,
+                    pivot_limit=args.pivot_limit
                     )
             except:
                 raise RuntimeError(f"fail to plot {stock.name}") 

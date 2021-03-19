@@ -225,7 +225,10 @@ class Stock:
         # about volume
         df_volume_mean = self.df['Volume'].mean()
         key_name = "vol_change%"
-        value = (self.df['Volume'].tail(5).sum() - df_volume_mean)/df_volume_mean * 20
+        num_days = 5
+        if len(self.df) <= 200:
+            num_days = 1
+        value = (self.df['Volume'].tail(num_days).sum() - df_volume_mean)/df_volume_mean * 100/num_days
         value = round(value, 2)
         result_dict[key_name] = value
         self.price_change_table = result_dict
@@ -294,7 +297,7 @@ class Stock:
 
         # Get pivot and plot
         if 'add_pivot' in kwargs:
-            result = self.get_pivot()
+            result = self.get_pivot(**kwargs)
             for pivot in result:
                 axes[0].axhline(y=self.df["High"].iloc[pivot], color='r', linestyle='-')
 
@@ -342,13 +345,16 @@ class Stock:
         else:
             return axes
     
-    def get_pivot(self):
+    def get_pivot(self, **kwargs):
 
         interval = 5
         result = []
+        currentMaxLimit = 1.5
+        if 'pivot_limit' in kwargs:
+            currentMaxLimit = kwargs['pivot_limit']
         for i in range(interval, len(self.df) - interval):
             currentMax = max(self.df["Volume"].iloc[i - interval:i + interval])
-            if currentMax == self.df["Volume"].iloc[i] and currentMax > 1.5:
+            if currentMax == self.df["Volume"].iloc[i] and currentMax > currentMaxLimit:
                 result.append(i)
             
         result_df = self.df.iloc[result]
