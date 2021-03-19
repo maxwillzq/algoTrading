@@ -56,6 +56,7 @@ install_requires.extend([
     'numpy',
     'mplfinance',
     'pypandoc',
+    'yfinance ',
 ])
 
 ################################################################################

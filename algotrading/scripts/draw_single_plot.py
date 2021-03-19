@@ -1,5 +1,5 @@
 import algotrading
-import algotrading.stock
+import algotrading.utils
 from algotrading.utils import *
 import pandas as pd
 import pandas_datareader.data as web
@@ -33,17 +33,43 @@ def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
     result_str = ""
     result_str += "## price change table summary\n\n"
     result_str += "Quick summary:\n\n"
-    result_str += f"- top 3 gainer today: { [name for name in price_change_table_pd.nlargest(3, '1D%').name] }\n"
-    result_str += f"- top 3 loser today: { [name for name in price_change_table_pd.nsmallest(3, '1D%').name] }\n"
+    tmp = price_change_table_pd.nlargest(3, '1D%')
+    result_str += f"- top 3 gainer today: { [name for name in tmp.name] }\n\n"
+    result_str += tmp.to_markdown() 
+    result_str += "\n\n"
+
+    tmp = price_change_table_pd.nsmallest(3, '1D%')
+    result_str += f"- top 3 loser today: { [name for name in tmp.name] }\n\n"
+    result_str += tmp.to_markdown() 
+    result_str += "\n\n"
+
     try:
-        result_str += f"- top 3 volume increase stock today: { [name for name in price_change_table_pd.nlargest(3, 'vol_change%').name] }\n"
-        result_str += f"- top 3 volume decrease stock today: { [name for name in price_change_table_pd.nsmallest(3, 'vol_change%').name] }\n"
+        tmp = price_change_table_pd.nlargest(3, 'vol_change%')
+        result_str += f"- top 3 volume increase stock today: { [name for name in tmp.name] }\n\n"
+        result_str += tmp.to_markdown() 
+        result_str += "\n\n"
+        tmp = price_change_table_pd.nsmallest(3, 'vol_change%')
+        result_str += f"- top 3 volume decrease stock today: { [name for name in tmp.name] }\n\n"
+        result_str += tmp.to_markdown() 
+        result_str += "\n\n"
     except:
         logger.info("no volume info")
-    result_str += "\n\n"
+    result_str += "\n\nFull table\n\n"
     #tmp = price_change_table_pd.drop(['name'],axis=1)
-    tmp = price_change_table_pd
+    result_str += "### bullish stocks \n\n"
+    tmp = price_change_table_pd[price_change_table_pd.mid_term == "bullish"]
     result_str +=  tmp.to_markdown()
+    result_str += "\n\n"
+    
+    result_str += "### undefined \n\n"
+    tmp = price_change_table_pd[price_change_table_pd.mid_term == "undefined"]
+    result_str +=  tmp.to_markdown()
+    result_str += "\n\n"
+
+    result_str += "### bearish stocks \n\n"
+    tmp = price_change_table_pd[price_change_table_pd.mid_term == "bearish"]
+    result_str +=  tmp.to_markdown()
+    result_str += "\n\n"
     return result_str, price_change_table_pd
 
 def main():
@@ -106,6 +132,8 @@ def main():
     stock_name_dict = {}
 
     stock_name_list = args.stock_list
+    date_str = end.strftime("%m_%d_%Y")
+    output_file_name = f"{stock_name_list}_daily_plot_{date_str}"
     if stock_name_list == "shuping":
         stock_name_dict = algotrading.data.get_data_dict("personal_stock_tickers.yaml")
     elif stock_name_list == "keyao":
@@ -114,23 +142,23 @@ def main():
         stock_name_dict = algotrading.data.get_data_dict("etf.yaml")
     elif stock_name_list == "fred":
         stock_name_dict = algotrading.data.get_data_dict("fred.yaml")
-    elif stock_name_list == "sp500":
-        tmp_df = algotrading.data.get_SP500_list()
-        tmp_df = tmp_df[tmp_df['GICS Sector'] == "Information Technology"]
-        for index in range(len(tmp_df)):
-            name = tmp_df['Symbol'].iloc[index]
+    elif stock_name_list.startswith("get"):
+        method = getattr(algotrading.data, stock_name_list)
+        result_list = method()
+        for name in result_list:
             stock_name_dict[name] = name
     else:
         stock_name_list = [item for item in args.stock_list.split(',')]
         for item in stock_name_list:
-            stock_name_dict[item] = item    
+            stock_name_dict[item] = item
+        output_file_name = f"daily_plot_{date_str}"    
 
     markdown_str = f"# Stock analysis report ({end})\n"
     price_change_table = []
     plotting_dict = {}
     for stock_name in stock_name_dict:
         if stock_name_list == "fred":
-            stock = algotrading.stock.Fred(stock_name, stock_name_dict[stock_name])
+            stock = algotrading.fred.Fred(stock_name, stock_name_dict[stock_name])
         else:
             stock = algotrading.stock.Stock(stock_name, stock_name_dict[stock_name])
         stock.read_data(days=args.days)
@@ -173,19 +201,6 @@ def main():
             #markdown_str += price_change_table_pd.loc[ind].to_markdown()
 
     # Generate markdown and pdf
-    date_str = end.strftime("%m_%d_%Y")
-    if args.stock_list == "shuping":
-        output_file_name = f"shuping_daily_plot_{date_str}"
-    elif args.stock_list == "keyao":
-        output_file_name = f"keyao_daily_plot_{date_str}"
-    elif args.stock_list == "etf":
-        output_file_name = f"etf_daily_plot_{date_str}"
-    elif args.stock_list == "fred":
-        output_file_name = f"fred_daily_plot_{date_str}"
-    elif args.stock_list == "sp500":
-        output_file_name = f"sp500_daily_plot_{date_str}"
-    else: 
-        output_file_name = f"daily_plot_{date_str}"
     md_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".md"))
     with open(md_file_path, 'w') as f:
         f.write(markdown_str)
@@ -194,6 +209,14 @@ def main():
     os.chdir(result_dir)
     output = pypandoc.convert_file(md_file_path, 'pdf', outputfile=pdf_file_path,
     extra_args=['-V', 'geometry:margin=1.5cm', '--pdf-engine=/Library/TeX/texbin/pdflatex'])
+
+    #remove png files    
+    images = os.listdir(".")
+    for item in images:
+        if item.endswith(".png"):
+            #os.remove(os.path.join(".", item))
+            pass
+
 
 if __name__ == '__main__':
     main()

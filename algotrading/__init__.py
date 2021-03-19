@@ -4,3 +4,5 @@ from . import scripts
 from . import data
 from . import templates
 from . import stock
+from . import fred
+from . import manager
