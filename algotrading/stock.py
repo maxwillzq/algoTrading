@@ -1,5 +1,6 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
+from typing import KeysView
 import pandas as pd
 import pandas_datareader.data as web
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ import mplfinance as mpf
 import logging
 import numpy as np
 import os
+import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +22,14 @@ class Stock:
         self.markdown_notes = "\n\\pagebreak\n\n"
         title = self.description if self.description else self.name
         self.markdown_notes += f"## {title}\n\n"
-
+        self.df = None
+        self.attribute = {}
 
     def read_data(self, *args, **kwargs):
         """Read Stock Data from Yahoo Finance
         """
         end = dt.datetime.now()
         start =  end - dt.timedelta(kwargs.get("days", 365))
-        logger.info(f"today is {end}")
         try:
             df = web.DataReader(self.name, 'yahoo', start, end)
         except:
@@ -36,16 +38,434 @@ class Stock:
         df.index = pd.to_datetime(df.index)
         df.drop(columns=['Adj Close'], inplace=True)
         volume_mean = df['Volume'].mean()
-        df['Volume'] = df['Volume']/volume_mean
+        df['normalized_volume'] = df['Volume']/volume_mean
+
+        # Generate moving average data
+        df["SMA5"] = df['Close'].rolling(5).mean().round(2)
+        df["SMA10"] = df['Close'].rolling(10).mean().round(2)
+        df["SMA20"] = df['Close'].rolling(20).mean().round(2)
+        df["SMA60"] = df['Close'].rolling(60).mean().round(2)
+        df["SMA120"] = df['Close'].rolling(120).mean().round(2)
+        df["SMA240"] = df['Close'].rolling(240).mean().round(2)
+        df['EMA5'] = df['Close'].ewm(span=5, adjust=False).mean().round(2)
+        df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean().round(2)
+        df['EMA20'] = df['Close'].ewm(span=20, adjust=False).mean().round(2)
+        df['EMA60'] = df['Close'].ewm(span=60, adjust=False).mean().round(2)
+        df['EMA120'] = df['Close'].ewm(span=120, adjust=False).mean().round(2)
+        df['EMA240'] = df['Close'].ewm(span=240, adjust=False).mean().round(2)
+
+        # MACD, see https://zh.wikipedia.org/wiki/%E6%8C%87%E6%95%B0%E5%B9%B3%E6%BB%91%E7%A7%BB%E5%8A%A8%E5%B9%B3%E5%9D%87%E7%BA%BF
+        df['MACD_DIF'] = df['Close'].ewm(span=12, adjust=False).mean() - df['Close'].ewm(span=26, adjust=False).mean() # macd
+        df['MACD_DEM'] = df['MACD_DIF'].ewm(span=9, adjust=False).mean() # signal
+        df['MACD_OSC'] = df['MACD_DIF'] - df['MACD_DEM'] # histgram
+
+        # get stock information
+        stock_info = yf.Ticker(self.name)
+        self.attribute = stock_info.info
+
+        self.markdown_notes += "name: " + self.attribute["longName"] + ","
+        if self.attribute["morningStarOverallRating"] is not None:
+            self.markdown_notes += "morningStarOverallRating: " + self.attribute["morningStarOverallRating"] + ", "
+        if "shortRatio" in self.attribute:
+            self.markdown_notes += "shortRatio: " + str(self.attribute["shortRatio"]) + "%,"
+        self.markdown_notes += "\n\n"
+        #print(df.columns)
+        tmp = df[
+            ["Close", "normalized_volume", 
+            "SMA5", "SMA10","SMA20",
+            "SMA60", "SMA120","SMA240"]
+            ].tail(5).to_markdown()
+        self.markdown_notes += f"\n\n{tmp}\n\n"
+
         self.df = df
         return self.df
     
-    def get_ma_range_min_max(self, MA=20):
-        last = len(self.df)
-        mav = self.df['Close'].rolling(MA).mean()
-        mav = mav[last - MA: last]
-        return mav.min(), mav.max()
+    def generate_more_data(self, days=14):
+        # Generate more data
+        self.calc_average_true_range(days=14) #  ATR
+        self.calc_relative_strength_index(days=14)  # RSI
+        self.calc_momentum_indicator(days=14) # Momentum
+        self.calc_william_ratio(days=14) # W%R
+        self.calc_money_flow_index(days=14) #MFI
+        self.calc_bias_ratio(days=60) #bias_ratio
+        self.calc_bull_bear_signal()
+
+        # Generate delta ratio
+        last = len(self.df) - 1
+        for delta in [1, 5, 20]:
+            key_name = f"{delta}D%"
+            if last - delta > 0:
+                value = (self.df['Close'].iloc[last] - self.df['Close'].iloc[last - delta])/self.df['Close'].iloc[last - delta] * 100
+                value = round(value, 2)
+                self.attribute[key_name] = value
+            else:
+                self.attribute[key_name] = None
+
+    def calc_bull_bear_signal(self):
+        df = self.df
+        # short-term signal
+        if df["SMA5"].iloc[-1] > df["SMA10"].iloc[-1] > df["SMA20"].iloc[-1]:
+            self.attribute["short_term"] = "long"
+        elif df["SMA5"].iloc[-1] < df["SMA10"].iloc[-1] < df["SMA20"].iloc[-1]:
+            self.attribute["short_term"] = "short"
+        else:
+            self.attribute["short_term"] = "undefined"
+
+        # mid-term signal
+        if df["SMA20"].iloc[-1] > df["SMA60"].iloc[-1] > df["SMA120"].iloc[-1]:
+            self.attribute["mid_term"] = "long"
+        elif df["SMA20"].iloc[-1] < df["SMA60"].iloc[-1] < df["SMA120"].iloc[-1]:
+            self.attribute["mid_term"] = "short"
+        else:
+            self.attribute["mid_term"] = "undefined"
+
+        # long-term signal
+        if df["SMA60"].iloc[-1] > df["SMA120"].iloc[-1] > df["SMA240"].iloc[-1]:
+            self.attribute["long_term"] = "long"
+        elif df["SMA60"].iloc[-1] < df["SMA120"].iloc[-1] < df["SMA240"].iloc[-1]:
+            self.attribute["long_term"] = "short"
+        else:
+            self.attribute["long_term"] = "undefined"
+        return self.attribute
+        
+    def plot(self, result_dir=None, **kwargs):
+        plot_style = 'plot_style_1'
+        if 'plot_style' in kwargs:
+            plot_style = kwargs['plot_style']
+        method = getattr(self, plot_style)
+        fig, axes = method(**kwargs)
+
+        # save to file if possible
+        image_name = self.name
+        if "image_name" in kwargs:
+            image_name = kwargs['image_name']
+        if result_dir is not None:
+            file_name = os.path.join(result_dir, image_name + ".png")
+            fig.savefig(file_name,dpi=300)
+            plt.close(fig)
+            self.markdown_notes += "\n\n \pagebreak\n\n"
+            self.markdown_notes += f"![{image_name}]({image_name}.png)\n\n\n"
+            return file_name
+        else:
+            return axes
+
+    def plot_style_1(self, **kwargs): 
+        df = self.df.copy()
+
+        # add moving average
+        mav = [20, 60, 120]
+        if 'mav' in kwargs:
+            mav = kwargs['mav']
+        colors = ['r', 'g', 'b', 'y']
+        legend_names = []
+        added_plots = []
+        for index in range(len(mav)):
+            item = mav[index]
+            color = colors[index]
+            if len(df) <= item:
+                break
+            df_sma = df[f"SMA{item}"]
+            df_ema = df[f"EMA{item}"]
+            added_plots.append(
+                mpf.make_addplot(df_sma, color=color)
+            )
+            legend_names.append(f"SMA{item}")
+            added_plots.append(
+                mpf.make_addplot(df_ema, color=color, linestyle='--')
+            )
+            legend_names.append(f"EMA{item}")
     
+        # add MACD
+        added_plots.extend([
+                mpf.make_addplot(self.df["MACD_OSC"],type='bar',width=0.7,panel=1,
+                                    color='dimgray',alpha=1,secondary_y=False),
+                mpf.make_addplot(self.df["MACD_DIF"], panel=1,color='fuchsia',secondary_y=False),
+                mpf.make_addplot(self.df["MACD_DEM"],panel=1,color='b',secondary_y=True),
+                ])
+        
+        # add 抵扣价
+        my_markers = []
+        colors = []
+        for index in range(len(self.df)):
+            marker = None
+            color = 'b'
+            # 抵扣价使用黄色
+            if len(self.df) - 1 - 20 == index or len(self.df)  - 1 - 60 == index or len(self.df) - 1 - 120 == index:
+                marker = '*'
+                color = 'y'
+            my_markers.append(marker)
+            colors.append(color)
+        added_plots.append(mpf.make_addplot(self.df['Close'], type='scatter', marker=my_markers,markersize=45,color=colors))
+
+        # add bias ratio
+        bias_ratio = self.df['bias_ratio']
+        added_plots.extend(
+            [
+                mpf.make_addplot(bias_ratio,panel=3,type='bar',width=0.7,color='b',ylabel="bias_ratio", secondary_y=False),
+            ]
+        )
+
+        # add title
+        last = len(df) - 1
+        daily_percentage = (df['Close'].iloc[last] - df['Close'].iloc[last - 1])/df['Close'].iloc[last - 1] * 100
+        daily_percentage = round(daily_percentage, 2)
+        if len(added_plots) > 0:
+            fig, axes = mpf.plot(df, 
+                type='candle', 
+                style="yahoo",
+                volume=True,
+                figsize=(12, 9), 
+                title=f"Today's increase={daily_percentage}%",
+                returnfig=True,
+                volume_panel=2,
+                addplot=added_plots,
+                )
+        else:
+            fig, axes = mpf.plot(df, 
+                type='candle', 
+                style="yahoo",
+                volume=True,
+                figsize=(12, 9), 
+                title=f"Today's increase={daily_percentage}%",
+                returnfig=True,
+                volume_panel=1,
+                )
+
+        # Get pivot and plot
+        if 'pivot_type' in kwargs:
+            result = self.get_pivot(**kwargs)
+            colors = ['r', 'g', 'b', 'y']
+            i = 0
+            for pivot in result:
+                axes[0].axhline(y=pivot, color=colors[i % len(colors)], linestyle='--')
+                i = i + 1
+                legend_names.append(pivot)
+
+        axes[0].legend(legend_names, loc="upper left")
+        return fig, axes
+
+    
+    def to_markdown(self):
+        return self.markdown_notes
+    
+    def plot_density(self, result_dir=None):
+        legend_names = []
+        df = self.df
+        plt.figure(figsize=(12,9))
+        axes = sns.distplot(df['Adj Close'].dropna(), bins=30, color='purple', vertical=True)
+        raverage = sum(df['Adj Close'] * df.Volume)/sum(df.Volume)
+        raverage = round(raverage, 2)
+        today_price = df['Adj Close'].iloc[-1].round(2)
+        axes.axhline(y=raverage, color='r', linestyle='--')
+        axes.axhline(y=today_price, color='g')
+        legend_names.extend(["Volume", f"average={raverage}", f"today={today_price}"])
+        axes.legend(legend_names, loc="upper right")
+        #step = param.get("step", 5)
+        #plt.yticks(np.arange(rmin, rmax, step))
+        #plt.grid()
+        fig = plt.gcf()
+        if result_dir is not None:
+            file_name = os.path.join(result_dir, self.name + "_density.png")
+            fig.savefig(file_name,dpi=300)
+            plt.close(fig)
+            self.markdown_notes += f"![{self.name}]({self.name}_density.png)\n\n\n"
+            return file_name
+        else:
+            return axes
+    
+    def get_pivot(self, **kwargs):
+
+        #pivot_type = "get_large_volume_pivot"
+        pivot_type = "get_standard_pivot"
+        if 'pivot_type' in kwargs:
+            pivot_type = kwargs['pivot_type']
+        method = getattr(self, pivot_type)
+        return method(**kwargs)
+
+
+    def get_large_volume_pivot(self, **kwargs):
+
+        interval = 5
+        result = []
+        indexes = []
+        currentMaxLimit = 1.5
+        for i in range(interval, len(self.df) - interval):
+            currentMax = max(self.df["Volume"].iloc[i - interval:i + interval])
+            if currentMax == self.df["Volume"].iloc[i] and currentMax > currentMaxLimit:
+                result.append(self.df["High"].iloc[i])
+                indexes.append(i)
+            
+        result_df = self.df.iloc[indexes]
+        result_df = result_df.sort_values(["Close", "Volume"], ascending=False)
+        result_df = result_df[["Close", "normalized_volume", "SMA5", "SMA10", "SMA20", "SMA60", "SMA120"]]
+        self.markdown_notes += f"\n\n{result_df.to_markdown()}\n\n"
+        return result   
+
+    def get_standard_pivot(self, **kwargs):
+        """
+        Standard Pivot Points are the most basic Pivot Points. To calculate Standard Pivot Points, you start with a Base Pivot Point, which is the simple average of High, Low and Close from a prior period. A Middle Pivot Point is represented by a line between the support and resistance levels.
+
+        To calculate the Base Pivot Point: (P) = (High + Low + Close)/3
+        To calculate the First Support Level: Support 1 (S1) = (P x 2) – High
+        To calculate the Second Support Point: Support 2 (S2) = P  –  (High  –  Low)
+        To calculate the First Resistance Level: Resistance 1 (R1) = (P x 2) – Low 
+        To calculate the Second Resistance Level: Resistance 2 (R2) = P + (High  –  Low) 
+        """
+
+        interval = 20
+        if 'interval' in kwargs:
+            interval = kwargs['interval']
+        
+        high = max(self.df['High'].iloc[-interval:])
+        low = min(self.df['High'].iloc[-interval:])
+        close = np.average(self.df['Close'].iloc[-interval:])
+        P = (high + low + close) / 3.0
+        S1 = P + (P - high)
+        S2 = P + (low - high)
+        R1 = P + (P - low)
+        R2 = P + (high - low)
+        result = [S1, S2, P, R1, R2]
+        for i in range(len(result)):
+            result[i] = round(result[i], 2)
+        return result
+    
+    def get_fibonacci_pivot(self, **kwargs):
+        """
+        To calculate the Base Pivot Point: Pivot Point (P) = (High + Low + Close)/3 
+        To calculate the First Support Level: Support 1 (S1) = P – {.382 * (High  –  Low)} 
+        To calculate the Second Support Level: Support 2 (S2) = P – {.618 * (High  –  Low)} 
+        To calculate the First Resistance Level: Resistance 1 (R1) = P + {.382 * (High  –  Low)} 
+        To calculate the Second Resistance Level: Resistance 2 (R2) = P + {.618 * (High  –  Low)} 
+        To calculate the Third Resistance Level: Resistance 3 (R3) = P + {1 * (High  –  Low)} 
+        """
+        interval = 20
+        if 'interval' in kwargs:
+            interval = kwargs['interval']
+        
+        high = max(self.df['High'].iloc[-interval:])
+        low = min(self.df['High'].iloc[-interval:])
+        close = np.average(self.df['Close'].iloc[-interval:])
+        P = (high + low + close) / 3.0
+        S1 = P + 0.382 * (low - high)
+        S2 = P + 0.618 * (low - high)
+        R1 = P + 0.382* (high - low)
+        R2 = P + 0.618* (high - low)
+        R3 = P + (high - low)
+        result = [S1, S2, P, R1, R2, R3]
+        for i in range(len(result)):
+            result[i] = round(result[i], 2)
+        return result
+
+    def calc_average_true_range(self, days=14):
+        """
+        The Average True Range (ATR) is a tool used in technical analysis to measure volatility
+        high = The Current Period High minus
+        low = Current Period Low
+        prev_close = Previous Close price
+        true range = max[(high - low), abs(high - prev_close), abs(low - prev_close)]
+        通常情况下股价的波动幅度会保持在一定常态下，
+        但是如果有主力资金进出时，股价波幅往往会加剧
+        在股价横盘整理、波幅减少到极点时，也往往会产生变盘行情
+        根据这个指标来进行预测的原则可以表达为：
+        该指标价值越高，趋势改变的可能性就越高;
+        该指标的价值越低，趋势的移动性就越弱
+        """
+        idf = self.df.copy()
+        idf['prev_Close'] = idf["Close"]
+        for i in range(len(idf)):
+            if i == 0:
+                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i]
+            else: 
+                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i-1]
+        idf["ATR1"] = abs(idf['High'] - idf['Low'])
+        idf["ATR2"] = abs(idf['High'] - idf['prev_Close'])
+        idf["ATR3"] = abs(idf['Low'] - idf['prev_Close'])
+        idf["ATR"] = idf[["ATR1", "ATR2", "ATR3"]].max(axis=1)
+        idf["ATR"] = idf["ATR"].rolling(days).mean()
+        self.df["ATR"] = idf["ATR"]
+        return self.df["ATR"]
+
+    def calc_relative_strength_index(self, days=14):
+        """
+        https://www.tradingview.com/ideas/relativestrengthindex/
+        """
+        idf = self.df.copy()
+        idf['prev_Close'] = idf["Close"]
+        for i in range(len(idf)):
+            if i == 0:
+                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i]
+            else: 
+                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i-1]
+        idf['Change'] = idf['Close'] - idf['prev_Close']
+        idf['RS'] = -idf['Change'].clip(lower=0).rolling(days).mean()/idf['Change'].clip(upper=0).rolling(days).mean()
+        idf['RSI'] = 100 - 100.0 / (1 + idf['RS'])
+        self.df["RSI"] = idf["RSI"]
+        return self.df["RSI"]
+
+    def calc_momentum_indicator(self, days=14):
+        """
+        https://www.investopedia.com/articles/technical/081501.asp
+        """
+        idf = self.df.copy()
+        idf['prev_Close'] = idf["Close"]
+        for i in range(len(idf)):
+            if i-days < 0:
+                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i]
+            else: 
+                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i-days]
+        idf['Momentum'] = idf['Close'] - idf['prev_Close']
+        self.df["Momentum"] = idf["Momentum"]
+        return self.df["Momentum"]
+
+    def calc_william_ratio(self, days=14):
+        """
+        https://en.wikipedia.org/wiki/Williams_%25R
+        """
+        idf = self.df.copy()
+        high = idf['High'].rolling(days).max()
+        low = idf['Low'].rolling(days).max()
+        wr =  100 * (idf['Close'] - high) / (high - low)
+        wr.replace([np.nan, np.inf, -np.inf], 0, inplace=True)
+        self.df['Williams_%R'] = wr
+        return self.df['Williams_%R']    
+
+    def calc_money_flow_index(self, days=14):
+        """
+        https://www.investopedia.com/terms/m/mfi.asp
+        """
+        idf = self.df.copy()
+        typical_price = (idf['High'] + idf['Low'] + idf['Close'])/3.0
+        raw_money_flow = typical_price * idf['Volume']
+        positive_money_flow = raw_money_flow.copy()
+        negative_money_flow = raw_money_flow.copy()
+        for i in range(len(idf)):
+            if i == 0:
+                positive_money_flow.iloc[i] = 0
+                negative_money_flow.iloc[i] = 0
+            else: 
+                prev_close= typical_price.iloc[i-1]
+                close = typical_price.iloc[i]
+                if close >= prev_close:
+                    negative_money_flow.iloc[i] = 0
+                else:
+                    positive_money_flow.iloc[i] = 0
+        
+        positive_money_flow = positive_money_flow.rolling(days).mean()
+        negative_money_flow  = negative_money_flow.rolling(days).mean()
+        raw_money_flow = raw_money_flow.rolling(days).mean()
+        mfi = 100 * ( positive_money_flow / raw_money_flow )
+        self.df['MFI'] = mfi
+        return  self.df['MFI']
+
+    def calc_bias_ratio(self, days=20):
+        """
+        https://www.investopedia.com/terms/b/bias.asp
+        """
+        mv = self.df['Close'].rolling(days).mean()
+        bias = self.df['Close'] - mv
+        self.df["bias_ratio"] = bias
+        return self.df['bias_ratio']
+
     def plot_band_lines(self, step=300):
         apds = []
         idf = self.df.copy()
@@ -116,31 +536,12 @@ class Stock:
 
     def calc_buy_sell_signal(self):
         idf = self.df.copy()
-        exp12     = idf['Close'].ewm(span=12, adjust=False).mean()
-        exp26     = idf['Close'].ewm(span=26, adjust=False).mean()
-        macd      = exp12 - exp26
-        signal    = macd.ewm(span=9, adjust=False).mean()
-        histogram = macd - signal
-        apds = []
-        apds.extend([
-                    mpf.make_addplot(histogram,type='bar',width=0.7,panel=1,
-                                    color='dimgray',alpha=1,secondary_y=False),
-                    mpf.make_addplot(macd, panel=1,color='fuchsia',secondary_y=False),
-                    mpf.make_addplot(signal,panel=1,color='b',secondary_y=True),
-                ])
-
         idf['20_EMA'] = idf['Close'].rolling(20).mean()
         idf['60_EMA'] = idf['Close'].rolling(60).mean()
         idf['120_EMA'] = idf['Close'].ewm(span=120, adjust=False).mean()
         idf['Signal'] = 0.0  
         idf['Signal'] = np.where(macd > signal + 0.02, 1.0, 0.0)
-        idf['Position'] = idf['Signal'].diff()
-        bias_60 = (idf['Close'] - idf['60_EMA']) / idf['60_EMA'] * 100
-        apds.extend(
-            [
-                mpf.make_addplot(bias_60,panel=3,type='bar',width=0.7,color='b',ylabel="bias_60", secondary_y=False),
-            ]
-        )
+        idf['Position'] = idf['Signal'].diff()        
 
         my_markers = []
         colors = []
@@ -175,255 +576,31 @@ class Stock:
         key is "5D%, 10D% ..." or moving average "20MA% .."
         value is difference to this baseline
         """
+        name_list = ["1D%","5D%", "20D%", "short_term", "mid_term", "long_term"]
         result_dict = {}
-        result_dict['name'] = self.name
-        result_dict['description'] = self.description
-        last = len(self.df) - 1
-        for delta in [1, 5, 20, 60]:
-            key_name = f"{delta}D%"
-            if last - delta > 0:
-                value = (self.df['Close'].iloc[last] - self.df['Close'].iloc[last - delta])/self.df['Close'].iloc[last - delta] * 100
-                value = round(value, 2)
-                result_dict[key_name] = value
-            else:
-                result_dict[key_name] = None
-
-        df = self.df.copy()
-        df["SMA5"] = df['Close'].rolling(5).mean().round(2)
-        df["SMA10"] = df['Close'].rolling(10).mean().round(2)
-        df["SMA20"] = df['Close'].rolling(20).mean().round(2)
-        df["SMA60"] = df['Close'].rolling(60).mean().round(2)
-        df["SMA120"] = df['Close'].rolling(120).mean().round(2)
-
-        # short-term signal
-        if df["SMA5"].iloc[-1] > df["SMA10"].iloc[-1] > df["SMA20"].iloc[-1]:
-            result_dict["short_term"] = "bullish"
-        elif df["SMA20"].iloc[-1] < df["SMA60"].iloc[-1] < df["SMA120"].iloc[-1]:
-            result_dict["short_term"] = "bearish"
-        else:
-            result_dict["short_term"] = "undefined"
-
-        # mid-term signal
-        if df["SMA20"].iloc[-1] > df["SMA60"].iloc[-1] > df["SMA120"].iloc[-1]:
-            result_dict["mid_term"] = "bullish"
-        elif df["SMA20"].iloc[-1] < df["SMA60"].iloc[-1] < df["SMA120"].iloc[-1]:
-            result_dict["mid_term"] = "bearish"
-        else:
-            result_dict["mid_term"] = "undefined"
-
-        self.markdown_notes += f"\n\n mid_term: {result_dict['mid_term']}, short_term: {result_dict['short_term']}\n\n"
-        self.markdown_notes += f"\n\n{df.tail(5).to_markdown()}\n\n"
+        for name in name_list:
+            result_dict[name] = self.attribute[name]
+        result_dict['Close'] = self.df.Close.iloc[-1]
+        result_dict["name"] = self.name
+        result_dict["description"] = self.description
+        self.markdown_notes += f"\n\n long_term: {result_dict['long_term']}, "
+        self.markdown_notes += f" mid_term: {result_dict['mid_term']}, "
+        self.markdown_notes += f" short_term: {result_dict['short_term']}, "
+        self.markdown_notes += "\n\n"
 
         # bias 
-        bias_60 = (df['Close'] - df['SMA60']) / df['SMA60'] * 100
-        bias_60 = bias_60.round(2)
+        bias_ratio = self.df["bias_ratio"]
+        bias_ratio = bias_ratio.round(2)
 
-        #bias_60_min_max_value = max(max(bias_60),  abs(min(bias_60)))
-        #bias_60 = bias_60 / bias_60_min_max_value
-        result_dict["bias_60"] = f"{bias_60.iloc[-1]}/{bias_60.min()}/{bias_60.max()}"
+        #bias_ratio_min_max_value = max(max(bias_ratio),  abs(min(bias_ratio)))
+        #bias_ratio = bias_ratio / bias_ratio_min_max_value
+        result_dict["bias_ratio"] = f"{bias_ratio.iloc[-1]}/{bias_ratio.min()}/{bias_ratio.max()}"
 
         # about volume
         df_volume_mean = self.df['Volume'].mean()
         key_name = "vol_change%"
-        num_days = 5
-        if len(self.df) <= 200:
-            num_days = 1
+        num_days = 1
         value = (self.df['Volume'].tail(num_days).sum() - df_volume_mean)/df_volume_mean * 100/num_days
         value = round(value, 2)
         result_dict[key_name] = value
-        self.price_change_table = result_dict
-
-        return self.price_change_table
-    
-    def plot(self, result_dir=None, apds=[], **kwargs):
-        
-        df = self.df.copy()
-        mav = [20, 60, 120]
-        if 'mav' in kwargs:
-            mav = kwargs['mav']
-        colors = ['r', 'g', 'b', 'y']
-        legend_names = []
-        added_plots = []
-        for index in range(len(mav)):
-            item = mav[index]
-            color = colors[index]
-            if len(df) <= item:
-                break
-            df_sma = df['Close'].rolling(item).mean()
-            df_ema = df['Close'].ewm(span=item, adjust=False).mean()
-            added_plots.append(
-                mpf.make_addplot(df_sma, color=color)
-            )
-            legend_names.append(f"SMA{item}")
-            added_plots.append(
-                mpf.make_addplot(df_ema, color=color, linestyle='--')
-            )
-            legend_names.append(f"EMA{item}")
-        added_plots.extend(apds)
-        last = len(df) - 1
-        delta = 1
-        daily_percentage = (df['Close'].iloc[last] - df['Close'].iloc[last - delta])/df['Close'].iloc[last - delta] * 100
-        daily_percentage = round(daily_percentage, 2)
-        if len(added_plots) > 0:
-            fig, axes = mpf.plot(df, 
-                type='candle', 
-                style="yahoo",
-                volume=True,
-                figsize=(12, 9), 
-                title=f"Today's increase={daily_percentage}%",
-                returnfig=True,
-                volume_panel=2,
-                addplot=added_plots,
-                )
-        else:
-            fig, axes = mpf.plot(df, 
-                type='candle', 
-                style="yahoo",
-                volume=True,
-                figsize=(12, 9), 
-                title=f"Today's increase={daily_percentage}%",
-                returnfig=True,
-                volume_panel=1,
-                )
-
-        # Configure chart legend and title
-        rmin, rmax = self.get_ma_range_min_max(MA=60)
-        rmin = round(rmin, 2)
-        rmax = round(rmax, 2)
-        axes[0].axhline(y=rmin, color='y', linestyle='--')
-        axes[0].axhline(y=rmax, color='y', linestyle='--')
-        legend_names.extend([rmin, rmax])
-        axes[0].legend(legend_names, loc="upper left")
-
-        # Get pivot and plot
-        if 'add_pivot' in kwargs:
-            result = self.get_pivot(**kwargs)
-            for pivot in result:
-                axes[0].axhline(y=self.df["High"].iloc[pivot], color='r', linestyle='-')
-
-        image_name = self.name
-        if "image_name" in kwargs:
-            image_name = kwargs['image_name']
-        if result_dir is not None:
-            file_name = os.path.join(result_dir, image_name + ".png")
-            fig.savefig(file_name,dpi=300)
-            plt.close(fig)
-            self.markdown_notes += "\n\n \pagebreak\n\n"
-            self.markdown_notes += f"![{image_name}]({image_name}.png)\n\n\n"
-            return file_name
-        else:
-            return axes
-    
-    def to_markdown(self):
-        # 空头排列还是多头排列
-
-
-        return self.markdown_notes
-    
-    def plot_density(self, result_dir=None):
-        legend_names = []
-        df = self.df
-        plt.figure(figsize=(12,9))
-        axes = sns.distplot(df['Adj Close'].dropna(), bins=30, color='purple', vertical=True)
-        raverage = sum(df['Adj Close'] * df.Volume)/sum(df.Volume)
-        raverage = round(raverage, 2)
-        today_price = df['Adj Close'].iloc[-1].round(2)
-        axes.axhline(y=raverage, color='r', linestyle='--')
-        axes.axhline(y=today_price, color='g')
-        legend_names.extend(["Volume", f"average={raverage}", f"today={today_price}"])
-        axes.legend(legend_names, loc="upper right")
-        #step = param.get("step", 5)
-        #plt.yticks(np.arange(rmin, rmax, step))
-        #plt.grid()
-        fig = plt.gcf()
-        if result_dir is not None:
-            file_name = os.path.join(result_dir, self.name + "_density.png")
-            fig.savefig(file_name,dpi=300)
-            plt.close(fig)
-            self.markdown_notes += f"![{self.name}]({self.name}_density.png)\n\n\n"
-            return file_name
-        else:
-            return axes
-    
-    def get_pivot(self, **kwargs):
-
-        interval = 5
-        result = []
-        currentMaxLimit = 1.5
-        if 'pivot_limit' in kwargs:
-            currentMaxLimit = kwargs['pivot_limit']
-        for i in range(interval, len(self.df) - interval):
-            currentMax = max(self.df["Volume"].iloc[i - interval:i + interval])
-            if currentMax == self.df["Volume"].iloc[i] and currentMax > currentMaxLimit:
-                result.append(i)
-            
-        result_df = self.df.iloc[result]
-        result_df = result_df.sort_values(["Close", "Volume"], ascending=False)
-        self.markdown_notes += f"\n\n{result_df.to_markdown()}\n\n"
-        return result    
-
-class Fred:
-    def __init__(self, name, description=None):
-        self.name = name
-        self.description = description
-        self.markdown_notes = "\n\\pagebreak\n\n"
-        title = self.description if self.description else self.name
-        self.markdown_notes += f"## {title}\n\n"
-
-    def read_data(self, *args, **kwargs):
-        """Read Stock Data from Yahoo Finance
-        """
-        end = dt.datetime.now()
-        start =  end - dt.timedelta(kwargs.get("days", 365))        
-        df = web.DataReader(self.name, 'fred', start, end)
-        df.index = pd.to_datetime(df.index)
-        round_df = df.round(4)
-        self.markdown_notes += f"{round_df.tail(5).to_markdown()}\n"
-        self.df = df
-        return self.df
-
-    def plot(self, result_dir=None, apds=[]):
-        last = len(self.df) - 1
-        delta = 1
-        daily_percentage = (self.df[self.name].iloc[last] - self.df[self.name].iloc[last - delta])/self.df[self.name].iloc[last - delta] * 100
-        daily_percentage = round(daily_percentage, 2)
-        plt.figure(figsize=(12,9))
-        df = self.df.copy()
-        df.plot(y=[self.name])
-        plt.legend(loc='upper left', shadow=True, fontsize='x-large')
-        plt.grid()
-        plt.title(f"Today's increase={daily_percentage}%")
-
-        if result_dir is not None:
-            file_name = os.path.join(result_dir, self.name + ".png")
-            plt.savefig(file_name,dpi=300)
-            plt.close()
-            self.markdown_notes += f"![{self.name}]({self.name}.png)\n\n\n"
-            return file_name
-        else:
-            fig = plt.gcf()
-            return fig
-    
-    def get_price_change_table(self):
-        """generate result_dict dict.
-        key is "5D%, 10D% ..." or moving average "20MA% .."
-        value is difference to this baseline
-        """
-        result_dict = {}
-        result_dict["name"] = self.name
-        if self.description:
-            result_dict["description"] = self.description
-        last = len(self.df) - 1
-        for delta in [1, 5, 20, 60, 120, 240]:
-            key_name = f"{delta}D%"
-            if last - delta > 0:
-                value = (self.df[self.name].iloc[last] - self.df[self.name].iloc[last - delta])/self.df[self.name].iloc[last - delta] * 100
-                value = round(value, 2)
-                result_dict[key_name] = value
-            else:
-                result_dict[key_name] = None
-        
         return result_dict
-
-    def to_markdown(self):
-        return self.markdown_notes
