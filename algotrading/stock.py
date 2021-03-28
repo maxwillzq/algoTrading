@@ -72,8 +72,8 @@ class Stock:
         #print(df.columns)
         tmp = df[
             ["Close", "normalized_volume", 
-            "SMA5", "SMA10","SMA20",
-            "SMA60", "SMA120","SMA240"]
+            "EMA5", "EMA10", "EMA20",
+            "EMA60", "EMA120","EMA240"]
             ].tail(5).to_markdown()
         self.markdown_notes += f"\n\n{tmp}\n\n"
 
@@ -82,11 +82,11 @@ class Stock:
     
     def generate_more_data(self, days=14):
         # Generate more data
-        self.calc_average_true_range(days=14) #  ATR
-        self.calc_relative_strength_index(days=14)  # RSI
-        self.calc_momentum_indicator(days=14) # Momentum
-        self.calc_william_ratio(days=14) # W%R
-        self.calc_money_flow_index(days=14) #MFI
+        self.calc_average_true_range(days=days) #  ATR
+        self.calc_relative_strength_index(days=days)  # RSI
+        self.calc_momentum_indicator(days=days) # Momentum
+        self.calc_william_ratio(days=days) # W%R
+        self.calc_money_flow_index(days=days) #MFI
         self.calc_bias_ratio(days=60) #bias_ratio
         self.calc_bull_bear_signal()
 
@@ -110,6 +110,13 @@ class Stock:
             self.attribute["short_term"] = "short"
         else:
             self.attribute["short_term"] = "undefined"
+        
+        if df["SMA5"].iloc[-2] > df["SMA10"].iloc[-2] > df["SMA20"].iloc[-2]:
+            self.attribute["yesterday_short_term"] = "long"
+        elif df["SMA5"].iloc[-2] < df["SMA10"].iloc[-2] < df["SMA20"].iloc[-2]:
+            self.attribute["yesterday_short_term"] = "short"
+        else:
+            self.attribute["yesterday_short_term"] = "undefined"
 
         # mid-term signal
         if df["SMA20"].iloc[-1] > df["SMA60"].iloc[-1] > df["SMA120"].iloc[-1]:
@@ -156,7 +163,7 @@ class Stock:
         mav = [20, 60, 120]
         if 'mav' in kwargs:
             mav = kwargs['mav']
-        colors = ['r', 'g', 'b', 'y']
+        colors = ['black', 'red', 'blue', 'yellow']
         legend_names = []
         added_plots = []
         for index in range(len(mav)):
@@ -290,14 +297,15 @@ class Stock:
         indexes = []
         currentMaxLimit = 1.5
         for i in range(interval, len(self.df) - interval):
-            currentMax = max(self.df["Volume"].iloc[i - interval:i + interval])
-            if currentMax == self.df["Volume"].iloc[i] and currentMax > currentMaxLimit:
+            currentMax = max(self.df["normalized_volume"].iloc[i - interval:i + interval])
+            if currentMax == self.df["normalized_volume"].iloc[i] and currentMax > currentMaxLimit:
                 result.append(self.df["High"].iloc[i])
                 indexes.append(i)
             
-        result_df = self.df.iloc[indexes]
-        result_df = result_df.sort_values(["Close", "Volume"], ascending=False)
+        result_df = self.df.iloc[indexes].round(2)
+        result_df = result_df.sort_values(["Close", "normalized_volume"], ascending=False)
         result_df = result_df[["Close", "normalized_volume", "SMA5", "SMA10", "SMA20", "SMA60", "SMA120"]]
+        self.markdown_notes += "\n\npivot table: \n\n"
         self.markdown_notes += f"\n\n{result_df.to_markdown()}\n\n"
         return result   
 

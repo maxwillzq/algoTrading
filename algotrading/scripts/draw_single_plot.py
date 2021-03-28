@@ -103,6 +103,12 @@ def main():
         help="flag control output individual stock chart. Yes or No",
         type=str,
     )
+    parser.add_argument(
+        "--pivot_type",
+        default="get_standard_pivot",
+        help="pivot type function. support:get_large_volume_pivot, get_standard_pivot, get_fibonacci_pivot etc",
+        type=str,
+    )
 
     parser.add_argument(
         "--with_density",
@@ -162,25 +168,27 @@ def main():
         else:
             stock = algotrading.stock.Stock(stock_name, stock_name_dict[stock_name])
         stock.read_data(days=args.days)
+        stock.generate_more_data(days=14)
         price_change_info = stock.get_price_change_table()
         price_change_table.append(price_change_info)
 
         # generate the plot if flag is true
         if args.with_chart == "Yes":
-            apds = []
-            if stock_name_list != "fred":
-                subplots = stock.calc_buy_sell_signal()
-                apds.extend(subplots)
             try:
-                if args.days >= 250:
-                    stock.plot(result_dir, apds, 
-                    mav=[20, 60, 120], image_name=stock_name + "_long"
+                if args.days >= 500:
+                    stock.plot(result_dir,
+                    mav=[60, 120, 240], image_name=stock_name + "_long",
+                    pivot_type=args.pivot_type
                     )
-                else:
-                    stock.plot(result_dir, apds, 
+                if args.days >= 250:
+                    stock.plot(result_dir,
+                    mav=[20, 60, 120], image_name=stock_name + "_mid",
+                    pivot_type=args.pivot_type
+                    )
+                if args.days >= 60:
+                    stock.plot(result_dir,
                     mav=[5, 10, 20], image_name=stock_name + "_short",
-                    add_pivot=True,
-                    pivot_limit=args.pivot_limit
+                    pivot_type=args.pivot_type
                     )
             except:
                 raise RuntimeError(f"fail to plot {stock.name}") 
