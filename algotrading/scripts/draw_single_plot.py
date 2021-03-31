@@ -180,12 +180,12 @@ def main():
                     mav=[60, 120, 240], image_name=stock_name + "_long",
                     pivot_type=args.pivot_type
                     )
-                if args.days >= 250:
+                elif args.days >= 250:
                     stock.plot(result_dir,
                     mav=[20, 60, 120], image_name=stock_name + "_mid",
                     pivot_type=args.pivot_type
                     )
-                if args.days >= 60:
+                elif args.days >= 60:
                     stock.plot(result_dir,
                     mav=[5, 10, 20], image_name=stock_name + "_short",
                     pivot_type=args.pivot_type

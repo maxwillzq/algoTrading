@@ -12,8 +12,36 @@ import logging
 import numpy as np
 import os
 import yfinance as yf
+import yahoo_fin.stock_info as si
 
 logger = logging.getLogger(__name__)
+
+def _convert_to_numeric(s):
+    """
+    Convert str to number
+    """
+    def force_float(elt):
+        elt = elt.replace(',','')
+
+        try:
+            return float(elt)
+        except:
+            return elt
+    if isinstance(s, float) or isinstance(s, int):
+        return s
+    if s is None:
+        return s
+    if "M" in s:
+        s = s.strip("M")
+        return force_float(s) * 1_000_000
+    if "B" in s:
+        s = s.strip("B")
+        return force_float(s) * 1_000_000_000
+    if '%' in s:
+        s = s.strip("%")
+        return force_float(s) /100.0
+    
+    return force_float(s)
 
 class Stock:
     def __init__(self, name, description=None):
@@ -24,6 +52,39 @@ class Stock:
         self.markdown_notes += f"## {title}\n\n"
         self.df = None
         self.attribute = {}
+    
+    def is_good_business(self):
+        """
+        define the checker function for good busniess:
+        - Good profit margin. Margin > 10%
+        - Revenue keep grow. YOY rate > 20%
+        - Revenue > 0.1 Billion USD
+        - Positive cash flow.
+        """
+        status = True
+        result = {}
+        message = []
+        stats = si.get_stats(self.name)
+        logger.debug(stats)
+        for index in range(len(stats)):
+            result[stats.Attribute.iloc[index]] = _convert_to_numeric(stats.Value.iloc[index])
+        
+        # check rules
+        if result["Profit Margin"] < 0.1:
+            message.append(f"fail: weak profit margin. profit margin = {result['Profit Margin']*100}")
+            status = False
+        if result["Revenue (ttm)"] < 100000000:
+            message.append(f"fail: revenue less than 0.1 * billion." + 'Revenue = ' + str(result["Revenue (ttm)"]/1000000000) + "Billion")
+            status = False
+        if result["Levered Free Cash Flow (ttm)"] < 0:
+            message.append(f"fail: free cash flow is negative, Levered free cash flow (ttm) = " + str(result["Levered Free Cash Flow (ttm)"]/1000000000) + "Billion USD")
+            status = False
+        if result["Quarterly Revenue Growth (yoy)"] < 0.1:
+            message.append(f"fail: revenue growth yoy less than 10%." + "rate = " + str(result["Quarterly Revenue Growth (yoy)"] * 100))
+            status = False
+        logger.info(message)
+        result_dict = result
+        return status, message, result_dict
 
     def read_data(self, *args, **kwargs):
         """Read Stock Data from Yahoo Finance
@@ -222,7 +283,7 @@ class Stock:
                 style="yahoo",
                 volume=True,
                 figsize=(12, 9), 
-                title=f"Today's increase={daily_percentage}%",
+                title=f"{self.name} today increase={daily_percentage}%",
                 returnfig=True,
                 volume_panel=2,
                 addplot=added_plots,
@@ -612,3 +673,29 @@ class Stock:
         value = round(value, 2)
         result_dict[key_name] = value
         return result_dict
+
+
+    def plot_earning(self):
+        stock_name = self.name
+        earnings = si.get_earnings(stock_name)
+        last_year_revenue = earnings['yearly_revenue_earnings']['revenue'].iloc[-1] / 1000000000
+        print(f"Last year revenue absolute value  = {last_year_revenue} billion USD")
+        for interval in ['year', 'quarter']:
+            tmp = earnings[f'{interval}ly_revenue_earnings'][['revenue', 'earnings']]
+            tmp.plot(title=f"{stock_name} {interval}ly", subplots=True)
+        return earnings
+
+    def plot_valuation(self):
+        stock_name = self.name
+        valuation = si.get_stats_valuation(stock_name)
+        valuation = valuation.set_index('Unnamed: 0')
+        valuation = valuation.applymap(algotrading.stock._convert_to_numeric)
+        valuation = valuation.T
+        valuation = valuation.sort_index()
+        tmp = plt.rcParams["figure.figsize"] 
+        plt.rcParams["figure.figsize"] = (20,20)
+        valuation[['Trailing P/E','Forward P/E 1', 'PEG Ratio (5 yr expected) 1', 'Price/Sales (ttm)','Price/Book (mrq)']].plot(subplots=True, grid=True)
+        plt.rcParams["figure.figsize"] = tmp
+        return valuation
+
+ 
