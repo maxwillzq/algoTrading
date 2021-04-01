@@ -124,16 +124,18 @@ class Stock:
         self.attribute = stock_info.info
 
         self.markdown_notes += "name: " + self.attribute["longName"] + ","
-        if self.attribute["morningStarOverallRating"] is not None:
-            self.markdown_notes += "morningStarOverallRating: " + self.attribute["morningStarOverallRating"] + ", "
-        if "shortRatio" in self.attribute:
-            self.markdown_notes += "shortRatio: " + str(self.attribute["shortRatio"]) + "%,"
+        self.markdown_notes += "\n\n"
+        if "shortPercentOfFloat" in self.attribute:
+            self.markdown_notes += "short percentage of float: " + str(round(self.attribute["shortPercentOfFloat"] * 100, 2)) + "%,"
+        self.markdown_notes += "\n\n"
+        if "trailingPE" in self.attribute:
+            self.markdown_notes += "trailingPE: " + str(round(self.attribute["trailingPE"], 2)) + ","
         self.markdown_notes += "\n\n"
         #print(df.columns)
         tmp = df[
             ["Close", "normalized_volume", 
-            "EMA5", "EMA10", "EMA20",
-            "EMA60", "EMA120","EMA240"]
+            "SMA5", "SMA10", "SMA20",
+            "SMA60", "SMA120","SMA240"]
             ].tail(5).to_markdown()
         self.markdown_notes += f"\n\n{tmp}\n\n"
 
@@ -149,6 +151,7 @@ class Stock:
         self.calc_money_flow_index(days=days) #MFI
         self.calc_bias_ratio(days=60) #bias_ratio
         self.calc_bull_bear_signal()
+        self.calc_buy_sell_signal()
 
         # Generate delta ratio
         last = len(self.df) - 1
@@ -644,6 +647,10 @@ class Stock:
         if idf["RSI"].iloc[-1] < 25:
             buy_score +=1
             messages.append("RSI is too weak, it means over-sold")
+        
+        self.attribute["buy_score"] = buy_score
+        self.attribute["sell_score"] = sell_score
+        self.attribute["buy_sell_comments"] = messages
         return buy_score, sell_score, messages
     
     def get_price_change_table(self):
@@ -661,6 +668,10 @@ class Stock:
         self.markdown_notes += f"\n\n long_term: {result_dict['long_term']}, "
         self.markdown_notes += f" mid_term: {result_dict['mid_term']}, "
         self.markdown_notes += f" short_term: {result_dict['short_term']}, "
+        self.markdown_notes += "\n\n"
+        if self.attribute["buy_score"] > 0 or self.attribute["sell_score"] > 0:
+            for message in self.attribute["buy_sell_comments"]:
+                self.markdown_notes +=  f"- {message}\n"
         self.markdown_notes += "\n\n"
 
         # bias 
