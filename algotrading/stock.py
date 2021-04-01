@@ -100,23 +100,22 @@ class Stock:
         df.drop(columns=['Adj Close'], inplace=True)
         volume_mean = df['Volume'].mean()
         df['normalized_volume'] = df['Volume']/volume_mean
-
         # Generate moving average data
-        df["SMA5"] = df['Close'].rolling(5).mean().round(2)
-        df["SMA10"] = df['Close'].rolling(10).mean().round(2)
-        df["SMA20"] = df['Close'].rolling(20).mean().round(2)
-        df["SMA60"] = df['Close'].rolling(60).mean().round(2)
-        df["SMA120"] = df['Close'].rolling(120).mean().round(2)
-        df["SMA240"] = df['Close'].rolling(240).mean().round(2)
-        df['EMA5'] = df['Close'].ewm(span=5, adjust=False).mean().round(2)
-        df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean().round(2)
-        df['EMA20'] = df['Close'].ewm(span=20, adjust=False).mean().round(2)
-        df['EMA60'] = df['Close'].ewm(span=60, adjust=False).mean().round(2)
-        df['EMA120'] = df['Close'].ewm(span=120, adjust=False).mean().round(2)
-        df['EMA240'] = df['Close'].ewm(span=240, adjust=False).mean().round(2)
+        df["SMA5"] = df["Close"].rolling(5).mean().round(2)
+        df["SMA10"] = df["Close"].rolling(10).mean().round(2)
+        df["SMA20"] = df["Close"].rolling(20).mean().round(2)
+        df["SMA60"] = df["Close"].rolling(60).mean().round(2)
+        df["SMA120"] = df["Close"].rolling(120).mean().round(2)
+        df["SMA240"] = df["Close"].rolling(240).mean().round(2)
+        df['EMA5'] = df["Close"].ewm(span=5, adjust=False).mean().round(2)
+        df['EMA10'] = df["Close"].ewm(span=10, adjust=False).mean().round(2)
+        df['EMA20'] = df["Close"].ewm(span=20, adjust=False).mean().round(2)
+        df['EMA60'] = df["Close"].ewm(span=60, adjust=False).mean().round(2)
+        df['EMA120'] = df["Close"].ewm(span=120, adjust=False).mean().round(2)
+        df['EMA240'] = df["Close"].ewm(span=240, adjust=False).mean().round(2)
 
         # MACD, see https://zh.wikipedia.org/wiki/%E6%8C%87%E6%95%B0%E5%B9%B3%E6%BB%91%E7%A7%BB%E5%8A%A8%E5%B9%B3%E5%9D%87%E7%BA%BF
-        df['MACD_DIF'] = df['Close'].ewm(span=12, adjust=False).mean() - df['Close'].ewm(span=26, adjust=False).mean() # macd
+        df['MACD_DIF'] = df["Close"].ewm(span=12, adjust=False).mean() - df["Close"].ewm(span=26, adjust=False).mean() # macd
         df['MACD_DEM'] = df['MACD_DIF'].ewm(span=9, adjust=False).mean() # signal
         df['MACD_OSC'] = df['MACD_DIF'] - df['MACD_DEM'] # histgram
 
@@ -156,7 +155,7 @@ class Stock:
         for delta in [1, 5, 20]:
             key_name = f"{delta}D%"
             if last - delta > 0:
-                value = (self.df['Close'].iloc[last] - self.df['Close'].iloc[last - delta])/self.df['Close'].iloc[last - delta] * 100
+                value = (self.df["Close"].iloc[last] - self.df["Close"].iloc[last - delta])/self.df["Close"].iloc[last - delta] * 100
                 value = round(value, 2)
                 self.attribute[key_name] = value
             else:
@@ -263,7 +262,7 @@ class Stock:
                 color = 'y'
             my_markers.append(marker)
             colors.append(color)
-        added_plots.append(mpf.make_addplot(self.df['Close'], type='scatter', marker=my_markers,markersize=45,color=colors))
+        added_plots.append(mpf.make_addplot(self.df["Close"], type='scatter', marker=my_markers,markersize=45,color=colors))
 
         # add bias ratio
         bias_ratio = self.df['bias_ratio']
@@ -275,7 +274,7 @@ class Stock:
 
         # add title
         last = len(df) - 1
-        daily_percentage = (df['Close'].iloc[last] - df['Close'].iloc[last - 1])/df['Close'].iloc[last - 1] * 100
+        daily_percentage = (df["Close"].iloc[last] - df["Close"].iloc[last - 1])/df["Close"].iloc[last - 1] * 100
         daily_percentage = round(daily_percentage, 2)
         if len(added_plots) > 0:
             fig, axes = mpf.plot(df, 
@@ -320,10 +319,10 @@ class Stock:
         legend_names = []
         df = self.df
         plt.figure(figsize=(12,9))
-        axes = sns.distplot(df['Adj Close'].dropna(), bins=30, color='purple', vertical=True)
-        raverage = sum(df['Adj Close'] * df.Volume)/sum(df.Volume)
+        axes = sns.distplot(df["Close"].dropna(), bins=30, color='purple', vertical=True)
+        raverage = sum(df["Close"] * df.Volume)/sum(df.Volume)
         raverage = round(raverage, 2)
-        today_price = df['Adj Close'].iloc[-1].round(2)
+        today_price = df["Close"].iloc[-1].round(2)
         axes.axhline(y=raverage, color='r', linestyle='--')
         axes.axhline(y=today_price, color='g')
         legend_names.extend(["Volume", f"average={raverage}", f"today={today_price}"])
@@ -387,7 +386,7 @@ class Stock:
         
         high = max(self.df['High'].iloc[-interval:])
         low = min(self.df['High'].iloc[-interval:])
-        close = np.average(self.df['Close'].iloc[-interval:])
+        close = np.average(self.df["Close"].iloc[-interval:])
         P = (high + low + close) / 3.0
         S1 = P + (P - high)
         S2 = P + (low - high)
@@ -413,7 +412,7 @@ class Stock:
         
         high = max(self.df['High'].iloc[-interval:])
         low = min(self.df['High'].iloc[-interval:])
-        close = np.average(self.df['Close'].iloc[-interval:])
+        close = np.average(self.df["Close"].iloc[-interval:])
         P = (high + low + close) / 3.0
         S1 = P + 0.382 * (low - high)
         S2 = P + 0.618 * (low - high)
@@ -443,9 +442,9 @@ class Stock:
         idf['prev_Close'] = idf["Close"]
         for i in range(len(idf)):
             if i == 0:
-                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i]
+                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i]
             else: 
-                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i-1]
+                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i-1]
         idf["ATR1"] = abs(idf['High'] - idf['Low'])
         idf["ATR2"] = abs(idf['High'] - idf['prev_Close'])
         idf["ATR3"] = abs(idf['Low'] - idf['prev_Close'])
@@ -462,10 +461,10 @@ class Stock:
         idf['prev_Close'] = idf["Close"]
         for i in range(len(idf)):
             if i == 0:
-                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i]
+                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i]
             else: 
-                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i-1]
-        idf['Change'] = idf['Close'] - idf['prev_Close']
+                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i-1]
+        idf['Change'] = idf["Close"] - idf['prev_Close']
         idf['RS'] = -idf['Change'].clip(lower=0).rolling(days).mean()/idf['Change'].clip(upper=0).rolling(days).mean()
         idf['RSI'] = 100 - 100.0 / (1 + idf['RS'])
         self.df["RSI"] = idf["RSI"]
@@ -479,10 +478,10 @@ class Stock:
         idf['prev_Close'] = idf["Close"]
         for i in range(len(idf)):
             if i-days < 0:
-                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i]
+                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i]
             else: 
-                idf['prev_Close'].iloc[i] = idf['Close'].iloc[i-days]
-        idf['Momentum'] = idf['Close'] - idf['prev_Close']
+                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i-days]
+        idf['Momentum'] = idf["Close"] - idf['prev_Close']
         self.df["Momentum"] = idf["Momentum"]
         return self.df["Momentum"]
 
@@ -493,7 +492,7 @@ class Stock:
         idf = self.df.copy()
         high = idf['High'].rolling(days).max()
         low = idf['Low'].rolling(days).max()
-        wr =  100 * (idf['Close'] - high) / (high - low)
+        wr =  100 * (idf["Close"] - high) / (high - low)
         wr.replace([np.nan, np.inf, -np.inf], 0, inplace=True)
         self.df['Williams_%R'] = wr
         return self.df['Williams_%R']    
@@ -503,7 +502,7 @@ class Stock:
         https://www.investopedia.com/terms/m/mfi.asp
         """
         idf = self.df.copy()
-        typical_price = (idf['High'] + idf['Low'] + idf['Close'])/3.0
+        typical_price = (idf['High'] + idf['Low'] + idf["Close"])/3.0
         raw_money_flow = typical_price * idf['Volume']
         positive_money_flow = raw_money_flow.copy()
         negative_money_flow = raw_money_flow.copy()
@@ -530,8 +529,8 @@ class Stock:
         """
         https://www.investopedia.com/terms/b/bias.asp
         """
-        mv = self.df['Close'].rolling(days).mean()
-        bias = self.df['Close'] - mv
+        mv = self.df["Close"].rolling(days).mean()
+        bias = self.df["Close"] - mv
         self.df["bias_ratio"] = bias
         return self.df['bias_ratio']
 
@@ -586,7 +585,7 @@ class Stock:
         idf['Date'] = idf['Date'].map(dt.datetime.toordinal)
         data1 = idf.copy()
 
-        rets = np.log(data1['Close'])
+        rets = np.log(data1["Close"])
         x = data1["Date"]
         slope, intercept, r_value, p_value, std_err = linregress(x, rets)
         idf['Prediction'] = np.e ** (intercept + slope * idf["Date"])
@@ -605,40 +604,47 @@ class Stock:
 
     def calc_buy_sell_signal(self):
         idf = self.df.copy()
-        idf['20_EMA'] = idf['Close'].rolling(20).mean()
-        idf['60_EMA'] = idf['Close'].rolling(60).mean()
-        idf['120_EMA'] = idf['Close'].ewm(span=120, adjust=False).mean()
-        idf['Signal'] = 0.0  
-        idf['Signal'] = np.where(macd > signal + 0.02, 1.0, 0.0)
-        idf['Position'] = idf['Signal'].diff()        
+        buy_score = 0
+        sell_score = 0
+        messages = []
+        #金叉
+        if idf["SMA60"].iloc[-1] > idf["SMA120"].iloc[-1] and idf["SMA60"].iloc[-6] < idf["SMA120"].iloc[-6]:
+            buy_score += 1
+            messages.append("SMA60 cross over SMA120 on up direction")
+        if idf["SMA20"].iloc[-1] > idf["SMA60"].iloc[-1] and idf["SMA20"].iloc[-6] < idf["SMA60"].iloc[-6]:
+            buy_score += 1
+            messages.append("SMA20 cross over SMA60 on up direction")
+        if idf["SMA5"].iloc[-1] > idf["SMA20"].iloc[-1] and idf["SMA5"].iloc[-6] < idf["SMA20"].iloc[-6]:
+            buy_score += 1
+            messages.append("SMA5 cross over SMA20 on up direction")
+        
+        #死叉
+        if idf["SMA60"].iloc[-1] < idf["SMA120"].iloc[-1] and idf["SMA60"].iloc[-6] > idf["SMA120"].iloc[-6]:
+            sell_score += 1
+            messages.append("SMA60 cross over SMA120 on down direction")
+        if idf["SMA20"].iloc[-1] < idf["SMA60"].iloc[-1] and idf["SMA20"].iloc[-6] > idf["SMA60"].iloc[-6]:
+            sell_score += 1
+            messages.append("SMA20 cross over SMA60 on down direction")
+        if idf["SMA5"].iloc[-1] < idf["SMA20"].iloc[-1] and idf["SMA5"].iloc[-6] > idf["SMA20"].iloc[-6]:
+            sell_score += 1
+            messages.append("SMA5 cross over SMA20 on down direction")
 
-        my_markers = []
-        colors = []
-        index = 0
-        for i, v in idf['Position'].items():
-            marker = None
-            color = 'b'
-            if v == 1 and idf.loc[i]["Close"] <= max(idf.loc[i]["60_EMA"], idf.loc[i]["20_EMA"]) * 1.05:
-                # Buy point
-                #marker = '^'
-                #color = 'g'
-                #logger.debug(f"index = {i}, macd = {macd.loc[i]}, signal = {signal.loc[i]}, hist = {histogram.loc[i]}")
-                pass
-            elif v == -1 and idf.loc[i]["Close"] >= max(idf.loc[i]["20_EMA"],idf.loc[i]["60_EMA"]):
-                # Sell point
-                # marker = 'v'
-                marker = None
-                color = 'r'
-            # 抵扣价使用黄色
-            if len(idf) - 1 - 20 == index or len(idf) - 1 - 60 == index or len(idf) - 1 - 120 == index:
-                marker = '*'
-                color = 'y'
-            
-            my_markers.append(marker)
-            colors.append(color)
-            index += 1
-        apds.append(mpf.make_addplot(idf['Close'], type='scatter', marker=my_markers,markersize=45,color=colors))
-        return apds
+        if idf["MACD_OSC"].iloc[-1] > 0 and idf["MACD_OSC"].iloc[-6] < 0:
+            buy_score += 1
+            messages.append("MACD cross over 0 on up direction")
+        
+        if idf["MACD_OSC"].iloc[-1] < 0 and idf["MACD_OSC"].iloc[-6] > 0:
+            sell_score += 1
+            messages.append("MACD cross over 0 on down direction")
+        
+        if idf["RSI"].iloc[-1] > 75:
+            sell_score +=1
+            messages.append("RSI is too strong, it means overbuy")
+        
+        if idf["RSI"].iloc[-1] < 25:
+            buy_score +=1
+            messages.append("RSI is too weak, it means over-sold")
+        return buy_score, sell_score, messages
     
     def get_price_change_table(self):
         """generate result_dict dict.
@@ -649,7 +655,7 @@ class Stock:
         result_dict = {}
         for name in name_list:
             result_dict[name] = self.attribute[name]
-        result_dict['Close'] = self.df.Close.iloc[-1]
+        result_dict["Close"] = self.df.Close.iloc[-1]
         result_dict["name"] = self.name
         result_dict["description"] = self.description
         self.markdown_notes += f"\n\n long_term: {result_dict['long_term']}, "
