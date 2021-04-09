@@ -206,7 +206,7 @@ def main():  # type: () -> None
                         help="set main flow config file")
     parser.add_argument("--extra", action='append',
                         type=lambda kv: kv.split("="), dest='extra',
-                        help="key value pairs for all new created options. For example: --extra python_usr_dir=<>",
+                        help="key value pairs for all new created options. For example: --extra stock_list=PDD --extra days=200",
                         required=False)
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)

@@ -103,8 +103,10 @@ class Stock:
         #add shift if need
         if 'shift' in kwargs:
             shift = int(kwargs['shift'])
-            for item in ["High", "Low", "Close"]:
-                df[item] = df[item].shift(shift, fill_value=df[item].iloc[-1])
+            for item in ["High", "Low", "Open", "Close", "Volume"]:
+                last_day_value = df[item].iloc[-1]
+                df[item] = df[item].shift(shift, fill_value=last_day_value)
+            self.attribute["virtual_shift"] = shift
 
         volume_mean = df['Volume'].mean()
         df['normalized_volume'] = df['Volume']/volume_mean
@@ -129,9 +131,8 @@ class Stock:
 
         # get stock information
         stock_info = yf.Ticker(self.name)
-        self.attribute = {}
         try:
-            self.attribute = stock_info.info
+            self.attribute.update(stock_info.info)
         except:
             logger.error("fail to run stock_info.info func")
 
