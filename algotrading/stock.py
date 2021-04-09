@@ -1,6 +1,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 from typing import KeysView
+from matplotlib.axes import Axes
 import pandas as pd
 import pandas_datareader.data as web
 import matplotlib.pyplot as plt
@@ -13,7 +14,7 @@ import numpy as np
 import os
 import yfinance as yf
 import yahoo_fin.stock_info as si
-
+import pandas_ta as ta
 logger = logging.getLogger(__name__)
 
 def _convert_to_numeric(s):
@@ -98,6 +99,13 @@ class Stock:
             raise RuntimeError()
         df.index = pd.to_datetime(df.index)
         df.drop(columns=['Adj Close'], inplace=True)
+
+        #add shift if need
+        if 'shift' in kwargs:
+            shift = int(kwargs['shift'])
+            for item in ["High", "Low", "Close"]:
+                df[item] = df[item].shift(shift, fill_value=df[item].iloc[-1])
+
         volume_mean = df['Volume'].mean()
         df['normalized_volume'] = df['Volume']/volume_mean
         # Generate moving average data
@@ -121,17 +129,17 @@ class Stock:
 
         # get stock information
         stock_info = yf.Ticker(self.name)
-        self.attribute = stock_info.info
+        self.attribute = {}
+        try:
+            self.attribute = stock_info.info
+        except:
+            logger.error("fail to run stock_info.info func")
 
-        self.markdown_notes += "name: " + self.attribute["longName"] + ","
-        self.markdown_notes += "\n\n"
-        if "shortPercentOfFloat" in self.attribute:
-            self.markdown_notes += "short percentage of float: " + str(round(self.attribute["shortPercentOfFloat"] * 100, 2)) + "%,"
-        self.markdown_notes += "\n\n"
-        if "trailingPE" in self.attribute:
-            self.markdown_notes += "trailingPE: " + str(round(self.attribute["trailingPE"], 2)) + ","
-        self.markdown_notes += "\n\n"
-        #print(df.columns)
+        try:
+            date = si.get_next_earnings_date(self.name)
+            self.attribute["next_earnings_date"] = date
+        except:
+            logger.warn("can not get next_earning date")
         tmp = df[
             ["Close", "normalized_volume", 
             "SMA5", "SMA10", "SMA20",
@@ -198,26 +206,12 @@ class Stock:
             self.attribute["long_term"] = "undefined"
         return self.attribute
         
-    def plot(self, result_dir=None, **kwargs):
+    def plot(self, **kwargs):
         plot_style = 'plot_style_1'
         if 'plot_style' in kwargs:
             plot_style = kwargs['plot_style']
         method = getattr(self, plot_style)
-        fig, axes = method(**kwargs)
-
-        # save to file if possible
-        image_name = self.name
-        if "image_name" in kwargs:
-            image_name = kwargs['image_name']
-        if result_dir is not None:
-            file_name = os.path.join(result_dir, image_name + ".png")
-            fig.savefig(file_name,dpi=300)
-            plt.close(fig)
-            self.markdown_notes += "\n\n \pagebreak\n\n"
-            self.markdown_notes += f"![{image_name}]({image_name}.png)\n\n\n"
-            return file_name
-        else:
-            return axes
+        return method(**kwargs)
 
     def plot_style_1(self, **kwargs): 
         df = self.df.copy()
@@ -275,45 +269,68 @@ class Stock:
             ]
         )
 
+        # add rsi
+        added_plots.extend([
+                mpf.make_addplot(self.df["RSI"], panel=4,color='fuchsia',ylabel="RSI",secondary_y=False),
+                mpf.make_addplot([70] * len(self.df), panel=4,color='r', linestyle='--', secondary_y=False),
+                mpf.make_addplot([30] * len(self.df), panel=4,color='r', linestyle='--', secondary_y=False),
+                mpf.make_addplot([50] * len(self.df), panel=4,color='g', linestyle='--', secondary_y=False),
+                ]),
+
         # add title
         last = len(df) - 1
         daily_percentage = (df["Close"].iloc[last] - df["Close"].iloc[last - 1])/df["Close"].iloc[last - 1] * 100
         daily_percentage = round(daily_percentage, 2)
-        if len(added_plots) > 0:
-            fig, axes = mpf.plot(df, 
-                type='candle', 
-                style="yahoo",
-                volume=True,
-                figsize=(12, 9), 
-                title=f"{self.name} today increase={daily_percentage}%",
-                returnfig=True,
-                volume_panel=2,
-                addplot=added_plots,
-                )
-        else:
-            fig, axes = mpf.plot(df, 
-                type='candle', 
-                style="yahoo",
-                volume=True,
-                figsize=(12, 9), 
-                title=f"Today's increase={daily_percentage}%",
-                returnfig=True,
-                volume_panel=1,
-                )
+        
+        d1 = df.index[ 0]
+        d2 = df.index[-1]
+        tdates = [(d1,d2)]
+
+        fig, axes = mpf.plot(df, 
+            type='candle', 
+            style="yahoo",
+            volume=True,
+            figsize=(12, 9), 
+            title=f"{self.name} today increase={daily_percentage}%",
+            returnfig=True,
+            volume_panel=2,
+            addplot=added_plots,
+            #tlines=[
+            #    dict(tlines=tdates,tline_use=['open','close',#'high','low'],tline_method='least-squares',#colors='black')],
+            )
+        
 
         # Get pivot and plot
-        if 'pivot_type' in kwargs:
-            result = self.get_pivot(**kwargs)
-            colors = ['r', 'g', 'b', 'y']
-            i = 0
-            for pivot in result:
-                axes[0].axhline(y=pivot, color=colors[i % len(colors)], linestyle='--')
-                i = i + 1
-                legend_names.append(pivot)
+        
+        #if 'pivot_type' in kwargs and kwargs['pivot_type'] is not None:
+        result = self.get_pivot(**kwargs)
+        colors = ['r', 'g', 'b', 'y']
+        i = 0
+        for pivot in result:
+            if i == len(result) / 2:
+                linestyle="-"
+            else:
+                linestyle="--"
+            axes[0].axhline(y=pivot, color=colors[i % len(colors)], linestyle=linestyle)
+            i = i + 1
+            legend_names.append(pivot)
 
         axes[0].legend(legend_names, loc="upper left")
-        return fig, axes
 
+        # save to file if possible
+        image_name = self.name
+        if "image_name" in kwargs:
+            image_name = kwargs['image_name']
+        result_dir = kwargs['result_dir'] if 'result_dir' in kwargs else None
+        if result_dir is not None:
+            file_name = os.path.join(result_dir, image_name + ".png")
+            fig.savefig(file_name,dpi=300)
+            plt.close(fig)
+            self.markdown_notes += "\n\n \pagebreak\n\n"
+            self.markdown_notes += f"![{image_name}]({image_name}.png)\n\n\n"
+            return file_name
+        else:
+            return fig, axes
     
     def to_markdown(self):
         return self.markdown_notes
@@ -461,17 +478,9 @@ class Stock:
         https://www.tradingview.com/ideas/relativestrengthindex/
         """
         idf = self.df.copy()
-        idf['prev_Close'] = idf["Close"]
-        for i in range(len(idf)):
-            if i == 0:
-                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i]
-            else: 
-                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i-1]
-        idf['Change'] = idf["Close"] - idf['prev_Close']
-        idf['RS'] = -idf['Change'].clip(lower=0).rolling(days).mean()/idf['Change'].clip(upper=0).rolling(days).mean()
-        idf['RSI'] = 100 - 100.0 / (1 + idf['RS'])
-        self.df["RSI"] = idf["RSI"]
+        self.df["RSI"] = idf.ta.rsi(length=days)
         return self.df["RSI"]
+
 
     def calc_momentum_indicator(self, days=14):
         """
@@ -494,7 +503,7 @@ class Stock:
         """
         idf = self.df.copy()
         high = idf['High'].rolling(days).max()
-        low = idf['Low'].rolling(days).max()
+        low = idf['Low'].rolling(days).min()
         wr =  100 * (idf["Close"] - high) / (high - low)
         wr.replace([np.nan, np.inf, -np.inf], 0, inplace=True)
         self.df['Williams_%R'] = wr
@@ -623,13 +632,13 @@ class Stock:
         
         #死叉
         if idf["SMA60"].iloc[-1] < idf["SMA120"].iloc[-1] and idf["SMA60"].iloc[-6] > idf["SMA120"].iloc[-6]:
-            sell_score += 1
+            sell_score -= 1
             messages.append("SMA60 cross over SMA120 on down direction")
         if idf["SMA20"].iloc[-1] < idf["SMA60"].iloc[-1] and idf["SMA20"].iloc[-6] > idf["SMA60"].iloc[-6]:
-            sell_score += 1
+            sell_score -= 1
             messages.append("SMA20 cross over SMA60 on down direction")
         if idf["SMA5"].iloc[-1] < idf["SMA20"].iloc[-1] and idf["SMA5"].iloc[-6] > idf["SMA20"].iloc[-6]:
-            sell_score += 1
+            sell_score -= 1
             messages.append("SMA5 cross over SMA20 on down direction")
 
         if idf["MACD_OSC"].iloc[-1] > 0 and idf["MACD_OSC"].iloc[-6] < 0:
@@ -637,11 +646,11 @@ class Stock:
             messages.append("MACD cross over 0 on up direction")
         
         if idf["MACD_OSC"].iloc[-1] < 0 and idf["MACD_OSC"].iloc[-6] > 0:
-            sell_score += 1
+            sell_score -= 1
             messages.append("MACD cross over 0 on down direction")
         
         if idf["RSI"].iloc[-1] > 75:
-            sell_score +=1
+            sell_score -=1
             messages.append("RSI is too strong, it means overbuy")
         
         if idf["RSI"].iloc[-1] < 25:
@@ -658,13 +667,13 @@ class Stock:
         key is "5D%, 10D% ..." or moving average "20MA% .."
         value is difference to this baseline
         """
-        name_list = ["1D%","5D%", "20D%", "short_term", "mid_term", "long_term"]
+        name_list = ["1D%","5D%", "20D%", "short_term", "mid_term", "long_term", "buy_score"]
         result_dict = {}
         for name in name_list:
             result_dict[name] = self.attribute[name]
         result_dict["Close"] = self.df.Close.iloc[-1]
         result_dict["name"] = self.name
-        result_dict["description"] = self.description
+        #result_dict["description"] = self.description
         self.markdown_notes += f"\n\n long_term: {result_dict['long_term']}, "
         self.markdown_notes += f" mid_term: {result_dict['mid_term']}, "
         self.markdown_notes += f" short_term: {result_dict['short_term']}, "
@@ -691,17 +700,6 @@ class Stock:
         result_dict[key_name] = value
         return result_dict
 
-
-    def plot_earning(self):
-        stock_name = self.name
-        earnings = si.get_earnings(stock_name)
-        last_year_revenue = earnings['yearly_revenue_earnings']['revenue'].iloc[-1] / 1000000000
-        print(f"Last year revenue absolute value  = {last_year_revenue} billion USD")
-        for interval in ['year', 'quarter']:
-            tmp = earnings[f'{interval}ly_revenue_earnings'][['revenue', 'earnings']]
-            tmp.plot(title=f"{stock_name} {interval}ly", subplots=True)
-        return earnings
-
     def plot_valuation(self):
         stock_name = self.name
         valuation = si.get_stats_valuation(stock_name)
@@ -714,5 +712,73 @@ class Stock:
         valuation[['Trailing P/E','Forward P/E 1', 'PEG Ratio (5 yr expected) 1', 'Price/Sales (ttm)','Price/Book (mrq)']].plot(subplots=True, grid=True)
         plt.rcParams["figure.figsize"] = tmp
         return valuation
+    
+    def plot_style_2(self, **kwargs):
+
+        plt.figure(figsize=(12,9))
+        fig, axes = plt.subplots(2)
+        fig.suptitle('Quick summary plot')
+        self.add_quick_summary()
+
+        # add earning history
+        earnings_history = si.get_earnings_history(self.name)
+        earnings_history = pd.DataFrame(earnings_history)
+        earnings_history = earnings_history.set_index("startdatetime")
+        earnings_history = earnings_history.sort_index()
+        earnings_history.index = pd.to_datetime(earnings_history.index)
+        earnings_history[["epsactual", "epsestimate"]].plot(ax=axes[0])
+        earnings_history[["epssurprisepct"]].plot(secondary_y=True, ax=axes[0], marker='o')
+        axes[0].set_ylabel('surprise')
+
+        # Add SMA240 trend
+        #import pdb
+        #pdb.set_trace()
+        #self.df.plot(x='Date', y=["SMA240",'Close'], itle="long term trend", ax=axes[1])
+        axes[1].plot(self.df.index, self.df[["SMA240",'Close']])
+        #self.df[["SMA240",'Close']].plot(title="long term trend", ax=axes[1], use_index=True)
+
+        # save to file if possible
+        image_name = self.name
+        if "image_name" in kwargs:
+            image_name = kwargs['image_name']
+        result_dir = kwargs['result_dir'] if 'result_dir' in kwargs else None
+        if result_dir is not None:
+            file_name = os.path.join(result_dir, image_name + ".png")
+            fig.savefig(file_name,dpi=300)
+            plt.close(fig)
+            self.markdown_notes += "\n\n \pagebreak\n\n"
+            self.markdown_notes += f"![{image_name}]({image_name}.png)\n\n\n"
+            return file_name
+        else:
+            return fig, axes
+
+ 
+    def add_quick_summary(self):
+        quick_summary_md = ""
+        quick_summary_md += f"# Quick summary about {self.name}\n\n"
+        quick_summary_md += "This is the quick summary:\n\n"
+        for item in [
+            "sector",
+            "longBusinessSummary",  "country", "city", "trailingPE",  "priceToSalesTrailing12Months", "fiftyTwoWeekHigh","fiftyTwoWeekLow",
+            "pegRatio", "shortPercentOfFloat", "next_earnings_date"
+            ]:
+            try:
+                tmp_str = f"- {item}: {self.attribute[item]}\n\n"
+                quick_summary_md += tmp_str
+            except:
+                pass
+        
+        info = si.get_stats_valuation(self.name)
+        quick_summary_md += info.to_markdown() + "\n\n"
+
+        info = si.get_analysts_info(self.name)
+        quick_summary_md += info["Earnings Estimate"].to_markdown() + "\n\n"
+
+
+        # finally, add it into markdown_notes
+        #quick_summary_md += "\n\\pagebreak\n\n"        
+        self.markdown_notes += quick_summary_md
+        return quick_summary_md
+
 
  

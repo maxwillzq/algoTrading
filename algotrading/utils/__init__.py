@@ -2,6 +2,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 from subprocess import call, check_output
 from . import plotting
+import os
 import shlex
 import logging
 import jinja2
@@ -36,3 +37,21 @@ def render_template_with_dict(template_string: str, render_dict: dict, result_fi
         with open(result_file_path, 'w') as f:
             f.write(result)
     return result
+
+def read_dict_from_file(file_path):
+    """read config from json or yaml file
+
+    Args:
+        file_path (str): the file path of config file
+    """
+    assert isinstance(file_path, str)
+    assert os.path.isfile(file_path), "{} file does not exist".format(file_path)
+    with open(file_path, 'r') as f:
+        if file_path.endswith('json'):
+            result_dict = json.load(f)
+        elif file_path.endswith('yaml') or file_path.endswith('yml'):
+            result_dict = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            raise RuntimeError(
+                "not support type file. only supprot yaml, yml or json. file path is " + file_path)
+        return result_dict

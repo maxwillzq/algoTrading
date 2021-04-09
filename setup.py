@@ -57,7 +57,8 @@ install_requires.extend([
     'mplfinance',
     'pypandoc',
     'yfinance ',
-    'yahoo_fin'
+    'yahoo_fin',
+    'pandas_ta',
 ])
 
 ################################################################################

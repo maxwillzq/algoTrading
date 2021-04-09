@@ -20,23 +20,6 @@ class ConfigBase:
     def __init__(self):
         self._data = {}
 
-    def read_from_file(self, file_path):
-        """read config from json or yaml file
-
-        Args:
-            file_path (str): the file path of config file
-        """
-        assert isinstance(file_path, str)
-        assert os.path.isfile(file_path), "{} file does not exist".format(file_path)
-        with open(file_path, 'r') as f:
-            if file_path.endswith('json'):
-                self._data = json.load(f)
-            elif file_path.endswith('yaml') or file_path.endswith('yml'):
-                self._data = yaml.load(f, Loader=yaml.FullLoader)
-            else:
-                raise RuntimeError(
-                    "not support type file. only supprot yaml, yml or json. file path is " + file_path)
-
     def read_from_dict(self, cf):  # Type: dict -> None
         """assign python dictionary to config
         """

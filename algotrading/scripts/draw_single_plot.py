@@ -19,6 +19,7 @@ import logging
 from collections import OrderedDict
 from datetime import timedelta
 import shutil
+import sys
 
 logger = logging.getLogger(__name__)
 #start = dt.datetime(end.year - 1, end.month, end.day)
@@ -33,15 +34,18 @@ def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
     result_str = ""
     result_str += "## price change table summary\n\n"
     result_str += "Quick summary:\n\n"
-    tmp = price_change_table_pd.nlargest(3, '1D%')
-    result_str += f"- top 3 gainer today: { [name for name in tmp.name] }\n\n"
-    result_str += tmp.to_markdown() 
-    result_str += "\n\n"
+    try:
+        tmp = price_change_table_pd.nlargest(3, '1D%')
+        result_str += f"- top 3 gainer today: { [name for name in tmp.name] }\n\n"
+        result_str += tmp.to_markdown() 
+        result_str += "\n\n"
 
-    tmp = price_change_table_pd.nsmallest(3, '1D%')
-    result_str += f"- top 3 loser today: { [name for name in tmp.name] }\n\n"
-    result_str += tmp.to_markdown() 
-    result_str += "\n\n"
+        tmp = price_change_table_pd.nsmallest(3, '1D%')
+        result_str += f"- top 3 loser today: { [name for name in tmp.name] }\n\n"
+        result_str += tmp.to_markdown() 
+        result_str += "\n\n"
+    except:
+        pass
 
     try:
         tmp = price_change_table_pd.nlargest(3, 'vol_change%')
@@ -72,60 +76,29 @@ def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
     result_str += "\n\n"
     return result_str, price_change_table_pd
 
-def main():
-    parser = argparse.ArgumentParser(description="plot stock")
-    parser.add_argument(
-        "--result_dir",
-        default="./save_visualization",
-        help="The result dir"
-    )
-    parser.add_argument(
-        "--stock_list",
-        default="shuping",
-        help="delimited stock name list",
-        type=str,
-    )
-    parser.add_argument(
-        "--days",
-        default=250,
-        help="how many days, default is 300",
-        type=int,
-    )
-    parser.add_argument(
-        "--sort_by",
-        default="mid_term,short_term,5D%,1D%",
-        help="sorted by which column.Default is 5D",
-        type=str,
-    )
-    parser.add_argument(
-        "--with_chart",
-        default="Yes",
-        help="flag control output individual stock chart. Yes or No",
-        type=str,
-    )
-    parser.add_argument(
-        "--pivot_type",
-        default="get_standard_pivot",
-        help="pivot type function. support:get_large_volume_pivot, get_standard_pivot, get_fibonacci_pivot etc",
-        type=str,
-    )
+def run_main_flow(args):
+    main_cf = {}
+    if args.config and os.path.isfile(args.config):
+        main_cf = algotrading.utils.read_dict_from_file(args.config)
+    if args.extra is not None:
+        extra_dict = dict(args.extra)
+        for key in extra_dict:
+            value = extra_dict[key]
+            if value == "False":
+                value = False
+            elif value == "True":
+                value = True
+            main_cf[key] =  value
 
-    parser.add_argument(
-        "--with_density",
-        default="No",
-        help="flag control output individual stock density chart. Yes or No",
-        type=str,
-    )
-
-    parser.add_argument(
-        "--pivot_limit",
-        default=1.5,
-        help="flag control output pivot lines",
-        type=float,
-    )
-
-    args = parser.parse_args()
-    result_dir = args.result_dir
+    # set default value
+    if not "days" in main_cf:
+        main_cf["days"] = 250
+    else:
+        main_cf["days"] = int(main_cf["days"])
+    if not "sort_by" in main_cf:
+        main_cf["sort_by"] = "mid_term,short_term,5D%,1D%"
+ 
+    result_dir = main_cf.get("result_dir","./save_visualization")
     if not os.path.isdir(result_dir):
         os.mkdir(result_dir)
     """
@@ -137,11 +110,13 @@ def main():
     end = dt.datetime.now()
     stock_name_dict = {}
 
-    stock_name_list = args.stock_list
+    stock_name_list = main_cf.get("stock_list", "shuping")
     date_str = end.strftime("%m_%d_%Y")
     output_file_name = f"{stock_name_list}_daily_plot_{date_str}"
     if stock_name_list == "shuping":
         stock_name_dict = algotrading.data.get_data_dict("personal_stock_tickers.yaml")
+    elif stock_name_list == "401k":
+        stock_name_dict = algotrading.data.get_data_dict("mutual_fund_tickers.yaml")
     elif stock_name_list == "keyao":
         stock_name_dict = algotrading.data.get_data_dict("keyao_stock_tickers.yaml")
     elif stock_name_list == "etf":
@@ -154,7 +129,7 @@ def main():
         for name in result_list:
             stock_name_dict[name] = name
     else:
-        stock_name_list = [item for item in args.stock_list.split(',')]
+        stock_name_list = [item for item in stock_name_list.split(',')]
         for item in stock_name_list:
             stock_name_dict[item] = item
         output_file_name = f"daily_plot_{date_str}"    
@@ -167,46 +142,43 @@ def main():
             stock = algotrading.fred.Fred(stock_name, stock_name_dict[stock_name])
         else:
             stock = algotrading.stock.Stock(stock_name, stock_name_dict[stock_name])
-        stock.read_data(days=args.days)
+        stock.read_data(**main_cf)
         stock.generate_more_data(days=14)
+
         price_change_info = stock.get_price_change_table()
         price_change_table.append(price_change_info)
-
         # generate the plot if flag is true
-        if args.with_chart == "Yes":
-            try:
-                if args.days >= 500:
-                    stock.plot(result_dir,
-                    mav=[60, 120, 240], image_name=stock_name + "_long",
-                    pivot_type=args.pivot_type
-                    )
-                elif args.days >= 250:
-                    stock.plot(result_dir,
-                    mav=[20, 60, 120], image_name=stock_name + "_mid",
-                    pivot_type=args.pivot_type
-                    )
-                elif args.days >= 60:
-                    stock.plot(result_dir,
-                    mav=[5, 10, 20], image_name=stock_name + "_short",
-                    pivot_type=args.pivot_type
-                    )
-            except:
-                raise RuntimeError(f"fail to plot {stock.name}") 
-            if args.with_density == "Yes":
-                stock.plot_density(result_dir)     
-            plotting_dict[stock_name] = stock.to_markdown()
+        #try:
+        if True:
+            if main_cf["days"] >= 500:
+                stock.plot(result_dir=result_dir,
+                mav=[60, 120, 240], image_name=stock_name + "_long", **main_cf
+                )
+            elif main_cf["days"] >= 250:
+                stock.plot(result_dir=result_dir,
+                mav=[20, 60, 120], image_name=stock_name + "_mid", **main_cf
+                )
+            elif main_cf["days"] >= 60:
+                stock.plot(result_dir=result_dir,
+                mav=[5, 10, 20], image_name=stock_name + "_short", **main_cf
+                )
+        #except:
+        #    raise RuntimeError(f"fail to plot {stock.name}") 
+        if main_cf.get("with_density", None) == "Yes":
+            stock.plot_density(result_dir)     
+        plotting_dict[stock_name] = stock.to_markdown()
 
     
     # Add summary to report
-    tmp_str, price_change_table_pd = generate_md_summary_from_changed_table(price_change_table, args.sort_by)
+    tmp_str, price_change_table_pd = generate_md_summary_from_changed_table(price_change_table, main_cf["sort_by"])
     markdown_str += tmp_str
 
     # add single plot to report if flag is true
-    if args.with_chart == "Yes":
-        for ind in price_change_table_pd.index:
-            key_name = price_change_table_pd.loc[ind].loc["name"]
-            markdown_str += plotting_dict[key_name]
-            #markdown_str += price_change_table_pd.loc[ind].to_markdown()
+    price_change_table_pd.sort_values(["buy_score"], inplace=True, ascending=False)
+    for ind in price_change_table_pd.index:
+        key_name = price_change_table_pd.loc[ind].loc["name"]
+        markdown_str += plotting_dict[key_name]
+        #markdown_str += price_change_table_pd.loc[ind].to_markdown()
 
     # Generate markdown and pdf
     md_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".md"))
@@ -224,6 +196,23 @@ def main():
         if item.endswith(".png"):
             #os.remove(os.path.join(".", item))
             pass
+
+def main():  # type: () -> None
+    parser = argparse.ArgumentParser(description="plot stock")
+    default_config_file = os.path.realpath(os.path.dirname(__file__))
+    default_config_file = os.path.join(
+        default_config_file, "main_flow_template.yaml")
+    parser.add_argument('--config', default=default_config_file,
+                        help="set main flow config file")
+    parser.add_argument("--extra", action='append',
+                        type=lambda kv: kv.split("="), dest='extra',
+                        help="key value pairs for all new created options. For example: --extra python_usr_dir=<>",
+                        required=False)
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+    args = parser.parse_args()
+    return run_main_flow(args)
 
 
 if __name__ == '__main__':
