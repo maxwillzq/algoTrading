@@ -4,6 +4,7 @@ from __future__ import (absolute_import, division, print_function,
 import logging
 import yaml
 import os
+import algotrading
 import pandas as pd
 logger = logging.getLogger(__name__)
 
@@ -88,3 +89,18 @@ def get_undervalued_growth_stocks(number=10):
     data = pd.read_html(url)[0]
     stk_list = list(data.Symbol)
     return stk_list
+
+def get_notes(stock_name):
+    file_name = os.path.join(get_data_dir(), f"notes/{stock_name}.yaml")
+    if os.path.isfile(file_name):
+        return open(file_name, 'r').read()
+    else:
+        return ""
+
+def get_arkk_list():
+    stock_name_dict = algotrading.data.get_data_dict("arkk_stock_tickers.yaml")
+    return stock_name_dict
+
+def get_brk_list():
+    stock_name_dict = algotrading.data.get_data_dict("brk_stock_tickers.yaml")
+    return stock_name_dict

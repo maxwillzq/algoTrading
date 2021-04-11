@@ -15,6 +15,7 @@ import os
 import yfinance as yf
 import yahoo_fin.stock_info as si
 import pandas_ta as ta
+import algotrading
 logger = logging.getLogger(__name__)
 
 def _convert_to_numeric(s):
@@ -48,7 +49,8 @@ class Stock:
     def __init__(self, name, description=None):
         self.name = name
         self.description = description
-        self.markdown_notes = "\n\\pagebreak\n\n"
+        self.markdown_notes = ""
+        #self.markdown_notes = "\n\\pagebreak\n\n"
         title = self.description if self.description else self.name
         self.markdown_notes += f"## {title}\n\n"
         self.df = None
@@ -214,9 +216,18 @@ class Stock:
         method = getattr(self, plot_style)
         return method(**kwargs)
 
-    def plot_style_1(self, **kwargs): 
-        df = self.df.copy()
+    def plot_style_1(self, **kwargs):
+        try:
+            self.add_quick_summary()
+        except:
+            pass
+        self.add_notes()
+        try:
+            self.plot_earning(**kwargs)
+        except:
+            pass
 
+        df = self.df.copy()
         # add moving average
         mav = [20, 60, 120]
         if 'mav' in kwargs:
@@ -714,41 +725,62 @@ class Stock:
         plt.rcParams["figure.figsize"] = tmp
         return valuation
     
-    def plot_style_2(self, **kwargs):
+    def plot_earning(self, **kwargs):
 
         plt.figure(figsize=(12,9))
         fig, axes = plt.subplots(2)
-        fig.suptitle('Quick summary plot')
-        self.add_quick_summary()
-
+        
         # add earning history
         earnings_history = si.get_earnings_history(self.name)
         earnings_history = pd.DataFrame(earnings_history)
+        earnings_history.dropna(inplace=True)
         earnings_history = earnings_history.set_index("startdatetime")
         earnings_history = earnings_history.sort_index()
         earnings_history.index = pd.to_datetime(earnings_history.index)
-        earnings_history[["epsactual", "epsestimate"]].plot(ax=axes[0])
-        earnings_history[["epssurprisepct"]].plot(secondary_y=True, ax=axes[0], marker='o')
-        axes[0].set_ylabel('surprise')
+        if len(earnings_history) > 10:
+            earnings_history = earnings_history.iloc[-10:]
+        result_dict = {}
+        result_dict["epsactual"] = list(earnings_history["epsactual"])
+        result_dict["epsestimate"] = list(earnings_history["epsestimate"])
 
-        # Add SMA240 trend
-        #import pdb
-        #pdb.set_trace()
-        #self.df.plot(x='Date', y=["SMA240",'Close'], itle="long term trend", ax=axes[1])
-        axes[1].plot(self.df.index, self.df[["SMA240",'Close']])
-        #self.df[["SMA240",'Close']].plot(title="long term trend", ax=axes[1], use_index=True)
-
+        earnings = si.get_earnings(self.name)
+        info = si.get_analysts_info(self.name)
+        result_dict["epsactual"].extend([None, None])
+        result_dict["epsestimate"].append(info["Earnings Estimate"].T.iloc[1].loc[1])
+        result_dict["epsestimate"].append(info["Earnings Estimate"].T.iloc[2].loc[1])
+        result_df = pd.DataFrame(result_dict)
+        this_year = dt.datetime.now().year
+        next_year = this_year + 1
+        new_row = {
+            "date": this_year,
+            "revenue": _convert_to_numeric(info["Revenue Estimate"].T.iloc[3].loc[1]),
+            #"earnings": _convert_to_numeric(info["Earnings Estimate"].T.iloc[3].loc[1])
+        }
+        earnings["yearly_revenue_earnings"] = earnings["yearly_revenue_earnings"].append(new_row, ignore_index=True)
+        new_row = {
+            "date": next_year,
+            "revenue": _convert_to_numeric(info["Revenue Estimate"].T.iloc[4].loc[1]),
+            #"earnings": _convert_to_numeric(info["Earnings Estimate"].T.iloc[4].loc[1])
+        }
+        earnings["yearly_revenue_earnings"] = earnings["yearly_revenue_earnings"].append(new_row, ignore_index=True)
+        earnings["yearly_revenue_earnings"]["revenue"] = earnings["yearly_revenue_earnings"]["revenue"]/1000000000
+        #earnings["yearly_revenue_earnings"] = earnings["yearly_revenue_earnings"]/1000000000
+        earnings["yearly_revenue_earnings"].set_index('date', inplace=True)
+        earnings["yearly_revenue_earnings"]["revenue"].plot(ax=axes[0], marker='o', legend=["revenue(B)"])
+        result_df.plot(ax=axes[1], marker='o')
+ 
         # save to file if possible
+        #fig = plt.gcf()
         image_name = self.name
         if "image_name" in kwargs:
             image_name = kwargs['image_name']
         result_dir = kwargs['result_dir'] if 'result_dir' in kwargs else None
         if result_dir is not None:
-            file_name = os.path.join(result_dir, image_name + ".png")
-            fig.savefig(file_name,dpi=300)
+            file_name =  image_name + "_earnings.png"
+            fig.savefig(os.path.join(result_dir,file_name),dpi=300)
             plt.close(fig)
             self.markdown_notes += "\n\n \pagebreak\n\n"
-            self.markdown_notes += f"![{image_name}]({image_name}.png)\n\n\n"
+            self.markdown_notes += f"![{image_name}]({file_name})\n\n\n"
             return file_name
         else:
             return fig, axes
@@ -758,6 +790,15 @@ class Stock:
         quick_summary_md = ""
         quick_summary_md += f"# Quick summary about {self.name}\n\n"
         quick_summary_md += "This is the quick summary:\n\n"
+
+        try:
+            status, messages, _ = self.is_good_business()
+            quick_summary_md += f"{self.name} is a good business? \nAnswer: {status}\n\n"
+            if status == False:
+                quick_summary_md += f"Reason:, {messages}\n\n"
+        except:
+            pass
+
         for item in [
             "sector",
             "longBusinessSummary",  "country", "city", "trailingPE",  "priceToSalesTrailing12Months", "fiftyTwoWeekHigh","fiftyTwoWeekLow",
@@ -773,13 +814,19 @@ class Stock:
         quick_summary_md += info.to_markdown() + "\n\n"
 
         info = si.get_analysts_info(self.name)
-        quick_summary_md += info["Earnings Estimate"].to_markdown() + "\n\n"
+        quick_summary_md += info["Growth Estimates"].to_markdown() + "\n\n"
+        #quick_summary_md += info["Revenue Estimate"].to_markdown() + "\n\n"
 
 
-        # finally, add it into markdown_notes
-        #quick_summary_md += "\n\\pagebreak\n\n"        
+        # finally, add it into markdown_notes  
         self.markdown_notes += quick_summary_md
         return quick_summary_md
+
+
+    def add_notes(self):
+        notes = algotrading.data.get_notes(self.name)
+        self.markdown_notes += notes
+        return notes
 
 
  
