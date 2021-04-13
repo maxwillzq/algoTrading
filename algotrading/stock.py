@@ -767,6 +767,7 @@ class Stock:
         #earnings["yearly_revenue_earnings"] = earnings["yearly_revenue_earnings"]/1000000000
         earnings["yearly_revenue_earnings"].set_index('date', inplace=True)
         earnings["yearly_revenue_earnings"]["revenue"].plot(ax=axes[0], marker='o', legend=["revenue(B)"])
+        #print(result_df)
         result_df.plot(ax=axes[1], marker='o')
  
         # save to file if possible

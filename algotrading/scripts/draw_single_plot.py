@@ -61,7 +61,7 @@ def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
     result_str += "\n\nFull table\n\n"
     #tmp = price_change_table_pd.drop(['name'],axis=1)
     result_str += "### bullish stocks \n\n"
-    tmp = price_change_table_pd[price_change_table_pd.mid_term == "bullish"]
+    tmp = price_change_table_pd[price_change_table_pd.mid_term == "long"]
     result_str +=  tmp.to_markdown()
     result_str += "\n\n"
     
@@ -71,7 +71,7 @@ def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
     result_str += "\n\n"
 
     result_str += "### bearish stocks \n\n"
-    tmp = price_change_table_pd[price_change_table_pd.mid_term == "bearish"]
+    tmp = price_change_table_pd[price_change_table_pd.mid_term == "short"]
     result_str +=  tmp.to_markdown()
     result_str += "\n\n"
     return result_str, price_change_table_pd
@@ -114,16 +114,16 @@ def run_main_flow(args):
     date_str = end.strftime("%m_%d_%Y")
     output_file_name = f"{stock_name_list}_daily_plot_{date_str}"
     if stock_name_list == "shuping":
-        stock_name_dict = algotrading.data.get_data_dict("personal_stock_tickers.yaml")
+        stock_name_dict = algotrading.data.get_data_dict("shuping_stock_tickers.yaml")
     elif stock_name_list == "401k":
         stock_name_dict = algotrading.data.get_data_dict("mutual_fund_tickers.yaml")
     elif stock_name_list == "keyao":
         stock_name_dict = algotrading.data.get_data_dict("keyao_stock_tickers.yaml")
     elif stock_name_list == "etf":
-        stock_name_dict = algotrading.data.get_data_dict("etf.yaml")
+        stock_name_dict = algotrading.data.get_data_dict("etf_tickers.yaml")
     elif stock_name_list == "fred":
         stock_name_dict = algotrading.data.get_data_dict("fred.yaml")
-    elif stock_name_list.startswith("get"):
+    elif stock_name_list.startswith("get_"):
         method = getattr(algotrading.data, stock_name_list)
         result_list = method()
         for name in result_list:
@@ -171,7 +171,8 @@ def run_main_flow(args):
     
     # Add summary to report
     tmp_str, price_change_table_pd = generate_md_summary_from_changed_table(price_change_table, main_cf["sort_by"])
-    markdown_str += tmp_str
+    if len(price_change_table) > 1:
+        markdown_str += tmp_str
 
     # add single plot to report if flag is true
     price_change_table_pd.sort_values(["buy_score"], inplace=True, ascending=False)
