@@ -284,6 +284,7 @@ class Stock:
         # add rsi
         added_plots.extend([
                 mpf.make_addplot(self.df["RSI"], panel=4,color='fuchsia',ylabel="RSI",secondary_y=False),
+                mpf.make_addplot(self.df["MFI"], panel=4,color='black',ylabel="MFI(black),RSI",secondary_y=False),
                 mpf.make_addplot([70] * len(self.df), panel=4,color='r', linestyle='--', secondary_y=False),
                 mpf.make_addplot([30] * len(self.df), panel=4,color='r', linestyle='--', secondary_y=False),
                 mpf.make_addplot([50] * len(self.df), panel=4,color='g', linestyle='--', secondary_y=False),

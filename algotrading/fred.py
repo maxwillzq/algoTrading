@@ -32,8 +32,11 @@ class Fred:
         self.markdown_notes += f"{round_df.tail(5).to_markdown()}\n"
         self.df = df
         return self.df
+    
+    def generate_more_data(self, days=14):
+        pass
 
-    def plot(self, result_dir=None, apds=[]):
+    def plot(self, **kwargs):
         last = len(self.df) - 1
         delta = 1
         daily_percentage = (self.df[self.name].iloc[last] - self.df[self.name].iloc[last - delta])/self.df[self.name].iloc[last - delta] * 100
@@ -45,7 +48,8 @@ class Fred:
         plt.grid()
         plt.title(f"Today's increase={daily_percentage}%")
 
-        if result_dir is not None:
+        if 'result_dir' in kwargs:
+            result_dir = kwargs['result_dir']
             file_name = os.path.join(result_dir, self.name + ".png")
             plt.savefig(file_name,dpi=300)
             plt.close()

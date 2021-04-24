@@ -170,14 +170,17 @@ def run_main_flow(args):
 
     
     # Add summary to report
-    tmp_str, price_change_table_pd = generate_md_summary_from_changed_table(price_change_table, main_cf["sort_by"])
-    if len(price_change_table) > 1:
-        markdown_str += tmp_str
+    try:
+        tmp_str, price_change_table_pd = generate_md_summary_from_changed_table(price_change_table, main_cf["sort_by"])
+        if len(price_change_table) > 1:
+            markdown_str += tmp_str
 
+        price_change_table_pd.sort_values(["buy_score"], inplace=True, ascending=False)
+    except:
+        pass
+    
     # add single plot to report if flag is true
-    price_change_table_pd.sort_values(["buy_score"], inplace=True, ascending=False)
-    for ind in price_change_table_pd.index:
-        key_name = price_change_table_pd.loc[ind].loc["name"]
+    for key_name in stock_name_dict:
         markdown_str += plotting_dict[key_name]
         #markdown_str += price_change_table_pd.loc[ind].to_markdown()
 
