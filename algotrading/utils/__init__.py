@@ -51,7 +51,7 @@ def read_dict_from_file(file_path):
         if file_path.endswith('json'):
             result_dict = json.load(f)
         elif file_path.endswith('yaml') or file_path.endswith('yml'):
-            result_dict = yaml.load(f, Loader=yaml.FullLoader)
+            result_dict = yaml.load(f)
         else:
             raise RuntimeError(
                 "not support type file. only supprot yaml, yml or json. file path is " + file_path)
