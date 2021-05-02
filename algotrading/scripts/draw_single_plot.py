@@ -183,13 +183,16 @@ def run_main_flow(args):
         markdown_str += plotting_dict[key_name]
         #markdown_str += price_change_table_pd.loc[ind].to_markdown()
 
-    # Generate markdown and pdf
+    # Generate markdown
     md_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".md"))
     with open(md_file_path, 'w') as f:
         f.write(markdown_str)
 
-    pdf_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".pdf"))
-    generate_pdf_from_markdown(md_file_path, result_dir, pdf_file_path)
+    # Generate pdf if user set
+    generate_pdf = main_cf.get("generate_pdf", "False")
+    if generate_pdf is True:
+        pdf_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".pdf"))
+        generate_pdf_from_markdown(md_file_path, result_dir, pdf_file_path)
 
     #remove png files    
     images = os.listdir(".")
