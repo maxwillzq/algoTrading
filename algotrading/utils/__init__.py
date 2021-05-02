@@ -6,6 +6,7 @@ import os
 import shlex
 import logging
 import jinja2
+import pypandoc
 logger = logging.getLogger(__name__)
 
 def command_executor(cmd, stdout=None):
@@ -55,3 +56,12 @@ def read_dict_from_file(file_path):
             raise RuntimeError(
                 "not support type file. only supprot yaml, yml or json. file path is " + file_path)
         return result_dict
+    
+
+def generate_pdf_from_markdown(md_file_path, result_dir, output_file_path):
+    current_dir = os.getcwd()
+    os.chdir(result_dir)
+    output = pypandoc.convert_file(md_file_path, 'pdf', outputfile=output_file_path,
+    extra_args=['-V', 'geometry:margin=1.5cm', '--pdf-engine=/Library/TeX/texbin/pdflatex'])
+    os.chdir(current_dir)
+

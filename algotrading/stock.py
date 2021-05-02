@@ -222,6 +222,7 @@ class Stock:
         except:
             pass
         self.add_notes()
+        
         try:
             self.plot_earning(**kwargs)
         except:

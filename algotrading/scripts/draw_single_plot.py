@@ -12,7 +12,6 @@ import datetime as dt
 import logging
 import os
 import numpy as np
-import pypandoc
 import argparse
 import json
 import logging
@@ -190,9 +189,7 @@ def run_main_flow(args):
         f.write(markdown_str)
 
     pdf_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".pdf"))
-    os.chdir(result_dir)
-    output = pypandoc.convert_file(md_file_path, 'pdf', outputfile=pdf_file_path,
-    extra_args=['-V', 'geometry:margin=1.5cm', '--pdf-engine=/Library/TeX/texbin/pdflatex'])
+    generate_pdf_from_markdown(md_file_path, result_dir, pdf_file_path)
 
     #remove png files    
     images = os.listdir(".")
