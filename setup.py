@@ -49,7 +49,7 @@ setup_requires = []
 tests_require = []
 install_requires.extend([
     'pandas',
-    'pandas_datareader',
+    'pandas_datareader>=0.10.0',
     'matplotlib',
     'seaborn',
     'datetime',

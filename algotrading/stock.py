@@ -45,6 +45,38 @@ def _convert_to_numeric(s):
     
     return force_float(s)
 
+class Sup_Res_Finder():
+    def isSupport(self, df,i):
+        support = df['Low'][i] < df['Low'][i-1]  and df['Low'][i] < df['Low'][i+1] \
+        and df['Low'][i+1] < df['Low'][i+2] and df['Low'][i-1] < df['Low'][i-2]
+
+        return support
+
+    def isResistance(self, df,i):
+        resistance = df['High'][i] > df['High'][i-1]  and df['High'][i] > df['High'][i+1] \
+        and df['High'][i+1] > df['High'][i+2] and df['High'][i-1] > df['High'][i-2] 
+
+        return resistance
+        
+    def find_levels(self, df):
+        levels = []
+        s =  np.mean(df['High'] - df['Low'])
+        
+        for i in range(2, df.shape[0]-2):
+            if self.isSupport(df,i):
+                l = df['Low'][i]
+            
+                if np.sum([abs(l-x) < s  for x in levels]) == 0:
+                    levels.append(l)
+            
+            elif self.isResistance(df,i):
+                l = df['High'][i]
+            
+                if np.sum([abs(l-x) < s  for x in levels]) == 0:
+                    levels.append(l)
+                    
+        return levels
+
 class Stock:
     def __init__(self, name, description=None):
         self.name = name
@@ -221,7 +253,7 @@ class Stock:
             self.add_quick_summary()
         except:
             pass
-        self.add_notes()
+        #self.add_notes()
         
         try:
             self.plot_earning(**kwargs)
@@ -318,14 +350,20 @@ class Stock:
         
         #if 'pivot_type' in kwargs and kwargs['pivot_type'] is not None:
         result = self.get_pivot(**kwargs)
+        result.sort()
         colors = ['r', 'g', 'b', 'y']
         i = 0
         for pivot in result:
-            if i == len(result) / 2:
+            if len(result) % 2 == 1 and i == len(result) // 2:
                 linestyle="-"
-            else:
+                color = 'y'
+            elif i <= len(result) // 2:
                 linestyle="--"
-            axes[0].axhline(y=pivot, color=colors[i % len(colors)], linestyle=linestyle)
+                color = 'r'
+            elif i > len(result) // 2:
+                linestyle="--"
+                color = 'g'
+            axes[0].axhline(y=pivot, color=color, linestyle=linestyle)
             i = i + 1
             legend_names.append(pivot)
 
@@ -339,7 +377,7 @@ class Stock:
         if result_dir is not None:
             file_name = os.path.join(result_dir, image_name + ".png")
             fig.savefig(file_name,dpi=300)
-            plt.close(fig)
+            plt.close('all')
             self.markdown_notes += "\n\n \pagebreak\n\n"
             self.markdown_notes += f"![{image_name}]({image_name}.png)\n\n\n"
             return file_name
@@ -378,6 +416,7 @@ class Stock:
 
         #pivot_type = "get_large_volume_pivot"
         pivot_type = "get_standard_pivot"
+        #pivot_type = "get_support_resistance_point"
         if 'pivot_type' in kwargs:
             pivot_type = kwargs['pivot_type']
         method = getattr(self, pivot_type)
@@ -386,7 +425,7 @@ class Stock:
 
     def get_large_volume_pivot(self, **kwargs):
 
-        interval = 5
+        interval = 20
         result = []
         indexes = []
         currentMaxLimit = 1.5
@@ -416,7 +455,7 @@ class Stock:
 
         interval = 20
         if 'interval' in kwargs:
-            interval = kwargs['interval']
+            interval = int(kwargs['interval'])
         
         high = max(self.df['High'].iloc[-interval:])
         low = min(self.df['High'].iloc[-interval:])
@@ -429,6 +468,18 @@ class Stock:
         result = [S1, S2, P, R1, R2]
         for i in range(len(result)):
             result[i] = round(result[i], 2)
+        return result
+    
+    def get_support_resistance_point(self, **kwargs):
+        interval = 200
+        if 'interval' in kwargs:
+            interval = int(kwargs['interval'])
+        tmp_df = self.df.iloc[-interval:]
+        obj = Sup_Res_Finder()
+        result = obj.find_levels(tmp_df)
+        for i in range(len(result)):
+            result[i] = round(result[i], 2)
+        result.sort()
         return result
     
     def get_fibonacci_pivot(self, **kwargs):
