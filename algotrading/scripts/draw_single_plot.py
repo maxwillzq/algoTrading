@@ -150,14 +150,17 @@ def run_main_flow(args):
         #try:
         if True:
             if main_cf["days"] >= 500:
+                #main_cf['interval'] = 60
                 stock.plot(result_dir=result_dir,
                 mav=[60, 120, 240], image_name=stock_name + "_long", **main_cf
                 )
             elif main_cf["days"] >= 250:
+                #main_cf['interval'] = 20
                 stock.plot(result_dir=result_dir,
                 mav=[20, 60, 120], image_name=stock_name + "_mid", **main_cf
                 )
             elif main_cf["days"] >= 60:
+                #main_cf['interval'] = 10
                 stock.plot(result_dir=result_dir,
                 mav=[5, 10, 20], image_name=stock_name + "_short", **main_cf
                 )
@@ -189,7 +192,7 @@ def run_main_flow(args):
         f.write(markdown_str)
 
     # Generate pdf if user set
-    generate_pdf = main_cf.get("generate_pdf", "False")
+    generate_pdf = main_cf.get("generate_pdf", True)
     if generate_pdf is True:
         pdf_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".pdf"))
         generate_pdf_from_markdown(md_file_path, result_dir, pdf_file_path)
