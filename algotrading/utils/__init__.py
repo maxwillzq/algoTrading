@@ -7,6 +7,7 @@ import shlex
 import logging
 import jinja2
 import pypandoc
+import yaml
 logger = logging.getLogger(__name__)
 
 def command_executor(cmd, stdout=None):
