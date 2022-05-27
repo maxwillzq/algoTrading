@@ -59,6 +59,11 @@ install_requires.extend([
     'yfinance ',
     'yahoo_fin',
     'pandas_ta',
+    'pyyaml>=6.0',
+    'tabulate',
+    'jinja2',
+    'dataclasses'
+
 ])
 
 ################################################################################
