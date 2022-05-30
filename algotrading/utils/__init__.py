@@ -1,14 +1,17 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-from subprocess import call, check_output
-import algotrading
-from algotrading.utils import plotting
+
+import logging
 import os
 import shlex
-import logging
+from subprocess import call, check_output
+
+import algotrading
 import jinja2
 import pypandoc
 import yaml
+from algotrading.utils import plotting
+
 logger = logging.getLogger(__name__)
 
 def command_executor(cmd, stdout=None):
