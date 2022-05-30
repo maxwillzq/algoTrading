@@ -122,7 +122,7 @@ def run_main_flow(args):
         yaml.dump(main_cf, f)
         logger.info(f"save the config to file {output_config_path}")
         logger.info(
-            f"next time user can rerun: algotrading_daily_plot --config {output_config_path}")
+            f"next time user can rerun: at_run --config {output_config_path}")
 
     end = dt.datetime.now()
     stock_name_dict = {}
@@ -229,7 +229,7 @@ def main():  # type: () -> None
     parser = argparse.ArgumentParser(description='''
     plot stock. 
     the example command line:
-    algotrading_daily_plot --extra stock_list=AMZN  --extra result_dir=<result_dir>
+    at_run --extra stock_list=AMZN  --extra result_dir=<result_dir>
     
     User can also define all options in config file and use config file 
     For example:
@@ -239,7 +239,7 @@ def main():  # type: () -> None
     days: 500
     sort_by: mid_term,short_term,5D%,1D%
 
-    run command: algotrading_daily_plot --config config.yaml
+    run command: at_run --config config.yaml
     '''
                                      )
     default_config_file = os.path.realpath(os.path.dirname(__file__))
