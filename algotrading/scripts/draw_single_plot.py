@@ -96,8 +96,14 @@ def run_main_flow(args):
         main_cf["days"] = int(main_cf["days"])
     if not "sort_by" in main_cf:
         main_cf["sort_by"] = "mid_term,short_term,5D%,1D%"
+
+    if not "result_dir" in main_cf:
+        logger.warn("no result_dir on user input. user --extra result_dir to it"
+        "The default value is ./save_visualization"
+        )
+        main_cf["result_dir"] = "./save_visualization"
  
-    result_dir = main_cf.get("result_dir","./save_visualization")
+    result_dir = main_cf.get("result_dir")
     if not os.path.isdir(result_dir):
         os.mkdir(result_dir)
     """
@@ -151,17 +157,18 @@ def run_main_flow(args):
         if True:
             if main_cf["days"] >= 500:
                 #main_cf['interval'] = 60
-                stock.plot(result_dir=result_dir,
+                stock.plot(
                 mav=[60, 120, 240], image_name=stock_name + "_long", **main_cf
                 )
             elif main_cf["days"] >= 250:
                 #main_cf['interval'] = 20
-                stock.plot(result_dir=result_dir,
+                print(main_cf)
+                stock.plot(
                 mav=[20, 60, 120], image_name=stock_name + "_mid", **main_cf
                 )
             elif main_cf["days"] >= 60:
                 #main_cf['interval'] = 10
-                stock.plot(result_dir=result_dir,
+                stock.plot(
                 mav=[5, 10, 20], image_name=stock_name + "_short", **main_cf
                 )
         #except:
@@ -205,7 +212,24 @@ def run_main_flow(args):
             pass
 
 def main():  # type: () -> None
-    parser = argparse.ArgumentParser(description="plot stock")
+    '''Main function to run daily plot.'''
+    parser = argparse.ArgumentParser(description=
+    '''
+    plot stock. 
+    the example command line:
+    algotrading_daily_plot --extra stock_list=AMZN  --extra result_dir=<result_dir>
+    
+    User can also define all options in config file and use config file 
+    For example:
+    config file content is 
+
+    stock_list: shuping
+    days: 500
+    sort_by: mid_term,short_term,5D%,1D%
+
+    run command: algotrading_daily_plot --config config.yaml
+    '''
+    )
     default_config_file = os.path.realpath(os.path.dirname(__file__))
     default_config_file = os.path.join(
         default_config_file, "main_flow_template.yaml")

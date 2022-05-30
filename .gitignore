@@ -130,3 +130,7 @@ dmypy.json
 
 # Other
 .DS_Store
+
+# Generate files
+save_visualization
+version.py
