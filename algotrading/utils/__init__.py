@@ -1,7 +1,8 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 from subprocess import call, check_output
-from . import plotting
+import algotrading
+from algotrading.utils import plotting
 import os
 import shlex
 import logging

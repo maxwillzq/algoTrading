@@ -1,6 +1,7 @@
 import algotrading
 import algotrading.utils
-from algotrading.utils import *
+from algotrading.utils import plotting
+import yaml
 import pandas as pd
 import pandas_datareader.data as web
 import matplotlib
@@ -19,6 +20,10 @@ from collections import OrderedDict
 from datetime import timedelta
 import shutil
 import sys
+
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
+    datefmt='%Y-%m-%d:%H:%M:%S',
+    level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 #start = dt.datetime(end.year - 1, end.month, end.day)
@@ -98,10 +103,8 @@ def run_main_flow(args):
         main_cf["sort_by"] = "mid_term,short_term,5D%,1D%"
 
     if not "result_dir" in main_cf:
-        logger.warn("no result_dir on user input. user --extra result_dir to it"
-        "The default value is ./save_visualization"
-        )
-        main_cf["result_dir"] = "./save_visualization"
+        logger.warn("no result_dir on user input. user --extra result_dir to it")
+        main_cf["result_dir"] = os.path.abspath("./save_visualization")
  
     result_dir = main_cf.get("result_dir")
     if not os.path.isdir(result_dir):
@@ -111,6 +114,11 @@ def run_main_flow(args):
         shutil.rmtree(result_dir)
     os.mkdir(result_dir)
     """
+    output_config_path = os.path.join(result_dir, "input_config.yaml")
+    with open(output_config_path, 'w') as f:
+        yaml.dump(main_cf, f)
+        logger.info(f"save the config to file {output_config_path}")
+        logger.info(f"next time user can rerun: algotrading_daily_plot --config {output_config_path}")
 
     end = dt.datetime.now()
     stock_name_dict = {}
@@ -202,7 +210,7 @@ def run_main_flow(args):
     generate_pdf = main_cf.get("generate_pdf", True)
     if generate_pdf is True:
         pdf_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".pdf"))
-        generate_pdf_from_markdown(md_file_path, result_dir, pdf_file_path)
+        algotrading.utils.generate_pdf_from_markdown(md_file_path, result_dir, pdf_file_path)
 
     #remove png files    
     images = os.listdir(".")
