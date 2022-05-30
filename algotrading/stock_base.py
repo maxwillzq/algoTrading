@@ -124,13 +124,31 @@ class StockBase:
         result_dict = result
         return status, message, result_dict
 
-    def read_data(self, *args, **kwargs):
-        """Read Stock Data from Yahoo Finance
+    def read_data_from_csv(self, csv_file: str):
+        """Read csv file into self.df pandas dataframe.
+
+        Args:
+            csv_file (str): input csv file name
+        Returns:
+            return self.df . the data is in self.df.
         """
-        end = dt.datetime.now()
-        start =  end - dt.timedelta(kwargs.get("days", 365))
+        if not os.path.isfile(csv_file):
+            raise FileNotFoundError(f"{csv_file} does not exists.")
+        self.df = pd.read_csv(csv_file)
+        return self.df
+    
+    def read_data_from_yahoo(self,
+                             start :int =-365,
+                             end: int =0,
+                             shift: int=0) -> None:
+        """Read Stock Data from Yahoo Finance website.
+        """
+        today_date = dt.datetime.now()
+        end_date = today_date + dt.timedelta(end)
+        start_date = today_date + dt.timedelta(start)
+
         try:
-            df = web.DataReader(self.name, 'yahoo', start, end)
+            df = web.DataReader(self.name, 'yahoo', start_date, end_date)
         except:
             logger.error(f"fail to get data for symbol {self.name}")
             raise RuntimeError()
@@ -138,35 +156,44 @@ class StockBase:
         df.drop(columns=['Adj Close'], inplace=True)
 
         #add shift if need
-        if 'shift' in kwargs:
-            shift = int(kwargs['shift'])
+        if shift != 0:
+            logger.info("add virtual shifting for research purpose.")
             for item in ["High", "Low", "Open", "Close", "Volume"]:
                 last_day_value = df[item].iloc[-1]
                 df[item] = df[item].shift(shift, fill_value=last_day_value)
             self.attribute["virtual_shift"] = shift
-
-        volume_mean = df['Volume'].mean()
-        df['normalized_volume'] = df['Volume']/volume_mean
+        self.df = df
+    
+    def calc_moving_average(self):
+        # Step 2: generate moving average data and add new columns.
+        volume_mean = self.df['Volume'].mean()
+        self.df['normalized_volume'] = self.df['Volume']/volume_mean
         # Generate moving average data
-        df["SMA5"] = df["Close"].rolling(5).mean().round(2)
-        df["SMA10"] = df["Close"].rolling(10).mean().round(2)
-        df["SMA20"] = df["Close"].rolling(20).mean().round(2)
-        df["SMA60"] = df["Close"].rolling(60).mean().round(2)
-        df["SMA120"] = df["Close"].rolling(120).mean().round(2)
-        df["SMA240"] = df["Close"].rolling(240).mean().round(2)
-        df['EMA5'] = df["Close"].ewm(span=5, adjust=False).mean().round(2)
-        df['EMA10'] = df["Close"].ewm(span=10, adjust=False).mean().round(2)
-        df['EMA20'] = df["Close"].ewm(span=20, adjust=False).mean().round(2)
-        df['EMA60'] = df["Close"].ewm(span=60, adjust=False).mean().round(2)
-        df['EMA120'] = df["Close"].ewm(span=120, adjust=False).mean().round(2)
-        df['EMA240'] = df["Close"].ewm(span=240, adjust=False).mean().round(2)
+        self.df["SMA5"] = self.df["Close"].rolling(5).mean().round(2)
+        self.df["SMA10"] = self.df["Close"].rolling(10).mean().round(2)
+        self.df["SMA20"] = self.df["Close"].rolling(20).mean().round(2)
+        self.df["SMA60"] = self.df["Close"].rolling(60).mean().round(2)
+        self.df["SMA120"] = self.df["Close"].rolling(120).mean().round(2)
+        self.df["SMA240"] = self.df["Close"].rolling(240).mean().round(2)
+        self.df['EMA5'] = self.df["Close"].ewm(span=5, adjust=False).mean().round(2)
+        self.df['EMA10'] = self.df["Close"].ewm(span=10, adjust=False).mean().round(2)
+        self.df['EMA20'] = self.df["Close"].ewm(span=20, adjust=False).mean().round(2)
+        self.df['EMA60'] = self.df["Close"].ewm(span=60, adjust=False).mean().round(2)
+        self.df['EMA120'] = self.df["Close"].ewm(span=120, adjust=False).mean().round(2)
+        self.df['EMA240'] = self.df["Close"].ewm(span=240, adjust=False).mean().round(2)
 
-        # MACD, see https://zh.wikipedia.org/wiki/%E6%8C%87%E6%95%B0%E5%B9%B3%E6%BB%91%E7%A7%BB%E5%8A%A8%E5%B9%B3%E5%9D%87%E7%BA%BF
-        df['MACD_DIF'] = df["Close"].ewm(span=12, adjust=False).mean() - df["Close"].ewm(span=26, adjust=False).mean() # macd
-        df['MACD_DEM'] = df['MACD_DIF'].ewm(span=9, adjust=False).mean() # signal
-        df['MACD_OSC'] = df['MACD_DIF'] - df['MACD_DEM'] # histgram
+    def calc_macd(self):
+        """_calculate MACD.
+        MACD Line (MACD_DIFF): (12-day EMA - 26-day EMA)
+        Signal Line (MACD_DEM): 9-day EMA of MACD Line
+        MACD Histogram (MACD_OSC): MACD Line - Signal Line
+        """
+        self.df['MACD_DIF'] = self.df["Close"].ewm(span=12, adjust=False).mean() - self.df["Close"].ewm(span=26, adjust=False).mean() # macd
+        self.df['MACD_DEM'] = self.df['MACD_DIF'].ewm(span=9, adjust=False).mean() # signal
+        self.df['MACD_OSC'] = self.df['MACD_DIF'] - self.df['MACD_DEM'] # histgram
 
-        # get stock information
+    def read_stock_info(self):
+        # Optional step 3: add more attributes.
         stock_info = yf.Ticker(self.name)
         try:
             self.attribute.update(stock_info.info)
@@ -178,18 +205,26 @@ class StockBase:
             self.attribute["next_earnings_date"] = date
         except:
             logger.warn("can not get next_earning date")
-        tmp = df[
-            ["Close", "normalized_volume", 
-            "SMA5", "SMA10", "SMA20",
-            "SMA60", "SMA120","SMA240"]
-            ].tail(5).to_markdown()
-        self.markdown_notes += f"\n\n{tmp}\n\n"
 
-        self.df = df
-        return self.df
     
+    def read_data(self, *args, **kwargs):
+        """Generate standard data for next step analysis.
+        """
+        # Step 1: read up to date data
+        data_input_file = kwargs.get('data_input_file', None)
+        if os.path.isfile(data_input_file):
+            self.read_data_from_csv(data_input_file)
+            return
+        else:
+            days = kwargs.get('days', 365)
+            shift = kwargs.get('virtual_shift', 0)
+            self.read_data_from_yahoo(start=-days, end=0, shift=shift)
+
     def generate_more_data(self, days=14):
         '''Generate more data based on known data.'''
+        self.read_stock_info()
+        self.calc_moving_average()
+        self.calc_macd()
         self.calc_average_true_range(days=days) #  ATR
         self.calc_relative_strength_index(days=days)  # RSI
         self.calc_momentum_indicator(days=days) # Momentum
@@ -198,6 +233,13 @@ class StockBase:
         self.calc_bias_ratio(days=60) #bias_ratio
         self.calc_bull_bear_signal()
         self.calc_buy_sell_signal()
+
+        tmp = self.df[
+            ["Close", "normalized_volume", 
+            "SMA5", "SMA10", "SMA20",
+            "SMA60", "SMA120","SMA240"]
+            ].tail(5).to_markdown()
+        self.markdown_notes += f"\n\n{tmp}\n\n"
 
         # Generate delta ratio
         last = len(self.df) - 1

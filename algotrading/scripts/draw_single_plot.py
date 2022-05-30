@@ -7,6 +7,7 @@ import shutil
 import sys
 from collections import OrderedDict
 from datetime import timedelta
+from typing import Any, Dict, List
 
 import algotrading
 import algotrading.utils
@@ -27,7 +28,6 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:
 
 logger = logging.getLogger(__name__)
 #start = dt.datetime(end.year - 1, end.month, end.day)
-default_stock_name_list = []
 
 # User setup area: choose stock symbol list
 
@@ -82,6 +82,38 @@ def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
     result_str += "\n\n"
     return result_str, price_change_table_pd
 
+def get_stock_name_dict(stock_list: str) -> Dict[str,str]:
+    """Converrt usr config stock_list into stock_name_dict
+
+    Args:
+        stock_list (str): stock_list seperated by comma or file name. Example: "AMZN,GOOG".
+
+    Returns:
+        Dict[str,str]:  key value pair. key = stock symbol, value = long stock name.
+    """
+    result = {}
+    if isinstance(stock_list, Dict):
+        result = stock_list
+    elif stock_list == "shuping":
+        result = algotrading.data.get_data_dict("shuping_stock_tickers.yaml")
+    elif stock_list == "401k":
+        result = algotrading.data.get_data_dict("mutual_fund_tickers.yaml")
+    elif stock_list == "keyao":
+        result = algotrading.data.get_data_dict("keyao_stock_tickers.yaml")
+    elif stock_list == "etf":
+        result = algotrading.data.get_data_dict("etf_tickers.yaml")
+    elif stock_list == "fred":
+        result = algotrading.data.get_data_dict("fred.yaml")
+    elif stock_list.startswith("get_"):
+        method = getattr(algotrading.data, stock_list)
+        result_list = method()
+        for name in result_list:
+            result[name] = name
+    else:
+        for item in stock_list.split(','):
+            result[item] = item
+    return result
+
 
 def run_main_flow(args):
     main_cf = {}
@@ -125,37 +157,13 @@ def run_main_flow(args):
             f"next time user can rerun: at_run --config {output_config_path}")
 
     end = dt.datetime.now()
-    stock_name_dict = {}
-
-    stock_name_list = main_cf.get("stock_list", "shuping")
-    date_str = end.strftime("%m_%d_%Y")
-    output_file_name = f"{stock_name_list}_daily_plot_{date_str}"
-    if stock_name_list == "shuping":
-        stock_name_dict = algotrading.data.get_data_dict("shuping_stock_tickers.yaml")
-    elif stock_name_list == "401k":
-        stock_name_dict = algotrading.data.get_data_dict("mutual_fund_tickers.yaml")
-    elif stock_name_list == "keyao":
-        stock_name_dict = algotrading.data.get_data_dict("keyao_stock_tickers.yaml")
-    elif stock_name_list == "etf":
-        stock_name_dict = algotrading.data.get_data_dict("etf_tickers.yaml")
-    elif stock_name_list == "fred":
-        stock_name_dict = algotrading.data.get_data_dict("fred.yaml")
-    elif stock_name_list.startswith("get_"):
-        method = getattr(algotrading.data, stock_name_list)
-        result_list = method()
-        for name in result_list:
-            stock_name_dict[name] = name
-    else:
-        stock_name_list = [item for item in stock_name_list.split(',')]
-        for item in stock_name_list:
-            stock_name_dict[item] = item
-        output_file_name = f"daily_plot_{date_str}"
-
+    stock_list = main_cf.get("stock_list", "shuping")
+    stock_name_dict = get_stock_name_dict(stock_list)
     markdown_str = f"# Stock analysis report ({end})\n"
     price_change_table = []
     plotting_dict = {}
     for stock_name in stock_name_dict:
-        if stock_name_list == "fred":
+        if stock_list == "fred":
             stock = algotrading.fred.Fred(stock_name, stock_name_dict[stock_name])
         else:
             stock = algotrading.stock.Stock(stock_name, stock_name_dict[stock_name])
