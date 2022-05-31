@@ -24,12 +24,12 @@ class TestStockBaseClass(unittest.TestCase):
     def test_generate_more_data(self):
         # test calc_moving_average func
         for item in ['SMA5', 'SMA10', 'SMA20', 'SMA60', 'SMA120', 'SMA240']:
-            self.assertTrue(item in self.df)
+            self.assertTrue(item in self.stock.df)
         for item in ['EMA5', 'EMA10', 'EMA20', 'EMA60', 'EMA120', 'EMA240']:
-            self.assertTrue(item in self.df)
+            self.assertTrue(item in self.stock.df)
         # test calc_macd
         for item in ['MACD_DIF', 'MACD_DEM', 'MACD_OSC']:
-            self.assertTrue(item in self.df)
+            self.assertTrue(item in self.stock.df)
 
 
     def test_is_good_business(self) -> None:
