@@ -13,12 +13,12 @@ import pandas as pd
 import pandas_datareader.data as web
 import pandas_ta as ta
 import seaborn as sns
-import yahoo_fin.stock_info as si
 import yfinance as yf
 from matplotlib.axes import Axes
 from scipy.stats import linregress
 
 import algotrading
+import algotrading.stock_info as si
 
 logger = logging.getLogger(__name__)
 
@@ -150,15 +150,19 @@ class StockBase:
         try:
             df = web.DataReader(self.name, 'yahoo', start_date, end_date)
         except:
-            logger.error(f"fail to get data for symbol {self.name}")
-            raise RuntimeError()
+            logger.debug(f"fail to get data for symbol {self.name} on yahoo. try fred")
+            try:
+                df = web.DataReader(self.name, 'fred', start_date, end_date)
+            except:
+                raise RuntimeError(f"fail to get for symbol {self.name}")
         df.index = pd.to_datetime(df.index)
-        df.drop(columns=['Adj Close'], inplace=True)
+        if 'Adj Close' in df:
+            df.drop(columns=['Adj Close'], inplace=True)
 
         #add shift if need
         if shift != 0:
             logger.info("add virtual shifting for research purpose.")
-            for item in ["High", "Low", "Open", "Close", "Volume"]:
+            for item in df.columns:
                 last_day_value = df[item].iloc[-1]
                 df[item] = df[item].shift(shift, fill_value=last_day_value)
             self.attribute["virtual_shift"] = shift
@@ -212,7 +216,7 @@ class StockBase:
         """
         # Step 1: read up to date data
         data_input_file = kwargs.get('data_input_file', None)
-        if os.path.isfile(data_input_file):
+        if data_input_file and os.path.isfile(data_input_file):
             self.read_data_from_csv(data_input_file)
             return
         else:
@@ -814,12 +818,14 @@ class StockBase:
         stock_name = self.name
         valuation = si.get_stats_valuation(stock_name)
         valuation = valuation.set_index('Unnamed: 0')
-        valuation = valuation.applymap(algotrading.stock._convert_to_numeric)
+        valuation = valuation.applymap(_convert_to_numeric)
         valuation = valuation.T
         valuation = valuation.sort_index()
         tmp = plt.rcParams["figure.figsize"] 
         plt.rcParams["figure.figsize"] = (20,20)
-        valuation[['Trailing P/E','Forward P/E 1', 'PEG Ratio (5 yr expected) 1', 'Price/Sales (ttm)','Price/Book (mrq)']].plot(subplots=True, grid=True)
+        #import pdb
+        #pdb.set_trace()
+        valuation[['Trailing P/E','Forward P/E', 'PEG Ratio (5 yr expected)', 'Price/Sales (ttm)','Price/Book (mrq)']].plot(subplots=True, grid=True)
         plt.rcParams["figure.figsize"] = tmp
         return valuation
     

@@ -13,7 +13,6 @@ import pandas as pd
 import pandas_datareader.data as web
 import pandas_ta as ta
 import seaborn as sns
-import yahoo_fin.stock_info as si
 import yfinance as yf
 from matplotlib.axes import Axes
 from scipy.stats import linregress

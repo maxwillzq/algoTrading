@@ -214,6 +214,9 @@ def run_main_flow(args):
         #markdown_str += price_change_table_pd.loc[ind].to_markdown()
 
     # Generate markdown
+    today_date = dt.datetime.now()
+    date_str = today_date.strftime("%m_%d_%Y")
+    output_file_name = f"daily_report_{date_str}"
     md_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".md"))
     with open(md_file_path, 'w') as f:
         f.write(markdown_str)
