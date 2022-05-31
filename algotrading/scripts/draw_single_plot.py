@@ -116,6 +116,7 @@ def get_stock_name_dict(stock_list: str) -> Dict[str,str]:
 
 
 def run_main_flow(args):
+    # process the main_cf.
     main_cf = {}
     if args.config and os.path.isfile(args.config):
         main_cf = algotrading.utils.read_dict_from_file(args.config)

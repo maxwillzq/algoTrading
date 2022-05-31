@@ -56,7 +56,6 @@ install_requires.extend([
     'numpy',
     'mplfinance',
     'pypandoc',
-    'yfinance ',
     'yahoo_fin',
     'pandas_ta',
     'pyyaml>=6.0',

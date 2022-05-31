@@ -6,6 +6,10 @@ import re
 import json
 import datetime
 
+import ssl
+# fix the http read failure issue (https://stackoverflow.com/a/56230607)
+ssl._create_default_https_context = ssl._create_unverified_context
+
 try:
     from requests_html import HTMLSession
 except Exception:
@@ -208,7 +212,23 @@ def tickers_dow(include_company_data = False):
 
     dow_tickers = sorted(table['Symbol'].tolist())
     
-    return dow_tickers    
+    return dow_tickers   
+
+def tickers_csi300(include_company_data = False):
+    '''Downloads list of currently traded tickers on the CSI 300'''
+
+    site = "https://en.wikipedia.org/wiki/CSI_300_Index"
+    
+    table = pd.read_html(site, attrs = {"id":"constituents"})[3]
+    
+    if include_company_data:
+        return table
+
+    tickers = sorted(table['Index'].tolist())
+    
+    return tickers   
+
+
     
 
 def tickers_ibovespa(include_company_data = False):
@@ -626,11 +646,9 @@ def get_day_losers(count: int = 100):
 
 
 def get_top_crypto():
-    
     '''Gets the top 100 Cryptocurrencies by Market Cap'''      
 
     session = HTMLSession()
-    
     resp = session.get("https://finance.yahoo.com/cryptocurrencies?offset=0&count=100")
     
     tables = pd.read_html(resp.html.raw_html)               
@@ -642,7 +660,8 @@ def get_top_crypto():
                                                                strip("+").\
                                                                replace(",", "")))
     del df["52 Week Range"]
-    del df["1 Day Chart"]
+    if 'Day Chart' in df:
+        del df["Day Chart"]
     
     fields_to_change = [x for x in df.columns.tolist() if "Volume" in x \
                         or x == "Market Cap" or x == "Circulating Supply"]
