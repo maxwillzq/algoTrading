@@ -1,4 +1,4 @@
 stock_list: shuping
 days: 500
 sort_by: mid_term,short_term,5D%,1D%
-result_dir: ./save_visualization
+result_dir: /Users/johnqiangzhang/Documents/open_source/algoTrading/algotrading/scripts/save_visualization/
