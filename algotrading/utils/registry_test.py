@@ -4,12 +4,12 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-import unittest
+from absl.testing import absltest
 from algotrading.utils import registry
 # pylint: disable=unused-variable,unused-argument
 
 
-class RegistryClassTest(unittest.TestCase):
+class RegistryClassTest(absltest.TestCase):
   """Test of base registry.Registry class."""
 
   def testGetterSetter(self):
@@ -71,4 +71,4 @@ class RegistryClassTest(unittest.TestCase):
     self.assertEqual(r.get("b", 3), 3)
 
 if __name__ == "__main__":
-  unittest.main()
+  absltest.main()

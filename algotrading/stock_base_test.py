@@ -1,7 +1,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-import unittest
+from absl.testing import absltest
 import os
 
 import algotrading
@@ -11,7 +11,7 @@ from algotrading import stock_base
 TOP_DIR = os.path.dirname(algotrading.__file__)
 
 
-class TestStockBaseClass(unittest.TestCase):
+class TestStockBaseClass(absltest.TestCase):
     """Test stock_base class."""
     def setUp(self) -> None:
         """Create StockBase object and download all data.
@@ -43,4 +43,4 @@ class TestStockBaseClass(unittest.TestCase):
         pass
     
 if __name__ == "__main__":
-    unittest.main()
+    absltest.main()

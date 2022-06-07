@@ -237,6 +237,9 @@ class StockBase:
         self.calc_bias_ratio(days=60) #bias_ratio
         self.calc_bull_bear_signal()
         self.calc_buy_sell_signal()
+        
+        # download more data
+        self.stats_valuation = si.get_stats_valuation(self.name)
 
         tmp = self.df[
             ["Close", "normalized_volume", 
@@ -816,7 +819,7 @@ class StockBase:
 
     def plot_valuation(self):
         stock_name = self.name
-        valuation = si.get_stats_valuation(stock_name)
+        valuation = self.stats_valuation
         valuation = valuation.set_index('Unnamed: 0')
         valuation = valuation.applymap(_convert_to_numeric)
         valuation = valuation.T
@@ -915,7 +918,7 @@ class StockBase:
             except:
                 pass
         
-        info = si.get_stats_valuation(self.name)
+        info = self.stats_valuation
         quick_summary_md += info.to_markdown() + "\n\n"
 
         info = si.get_analysts_info(self.name)
