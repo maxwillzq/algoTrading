@@ -238,8 +238,11 @@ class StockBase:
         self.calc_bull_bear_signal()
         self.calc_buy_sell_signal()
         
-        # download more data
-        self.stats_valuation = si.get_stats_valuation(self.name)
+        # download more data if possible
+        try:
+            self.stats_valuation = si.get_stats_valuation(self.name)
+        except:
+            self.stats_valuation = None
 
         tmp = self.df[
             ["Close", "normalized_volume", 
@@ -819,6 +822,7 @@ class StockBase:
 
     def plot_valuation(self):
         stock_name = self.name
+        assert self.stats_valuation, "need generate data first."
         valuation = self.stats_valuation
         valuation = valuation.set_index('Unnamed: 0')
         valuation = valuation.applymap(_convert_to_numeric)
@@ -918,8 +922,9 @@ class StockBase:
             except:
                 pass
         
-        info = self.stats_valuation
-        quick_summary_md += info.to_markdown() + "\n\n"
+        if self.stats_valuation:
+            info = self.stats_valuation
+            quick_summary_md += info.to_markdown() + "\n\n"
 
         info = si.get_analysts_info(self.name)
         quick_summary_md += info["Growth Estimates"].to_markdown() + "\n\n"
