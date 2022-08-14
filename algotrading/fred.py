@@ -1,36 +1,34 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
+
+import datetime as dt
+import logging
+import os
+
+import matplotlib.pyplot as plt
+import mplfinance as mpf
+import numpy as np
 import pandas as pd
 import pandas_datareader.data as web
-import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import linregress
-import datetime as dt
-import mplfinance as mpf
-import logging
-import numpy as np
-import os
+
+import algotrading
+from algotrading import stock_base
 
 logger = logging.getLogger(__name__)
 
-class Fred:
+class Fred(stock_base.StockBase):
     def __init__(self, name, description=None):
-        self.name = name
-        self.description = description
-        self.markdown_notes = "\n\\pagebreak\n\n"
-        title = self.description if self.description else self.name
-        self.markdown_notes += f"## {title}\n\n"
+        super().__init__(name, description)
 
     def read_data(self, *args, **kwargs):
         """Read Stock Data from Yahoo Finance
         """
-        end = dt.datetime.now()
-        start =  end - dt.timedelta(kwargs.get("days", 365))        
-        df = web.DataReader(self.name, 'fred', start, end)
-        df.index = pd.to_datetime(df.index)
-        round_df = df.round(4)
+        super().read_data(*args, **kwargs)
+
+        round_df = self.df.round(4)
         self.markdown_notes += f"{round_df.tail(5).to_markdown()}\n"
-        self.df = df
         return self.df
     
     def generate_more_data(self, days=14):
