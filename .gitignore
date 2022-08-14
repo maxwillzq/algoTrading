@@ -130,5 +130,5 @@ dmypy.json
 
 # Other
 .DS_Store
- algotrading/version.py
- algotrading/scripts/save_visualization/
+algotrading/version.py
+algotrading/scripts/save_visualization/
