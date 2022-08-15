@@ -222,11 +222,11 @@ def run_main_flow(args):
     with open(md_file_path, 'w') as f:
         f.write(markdown_str)
 
-    # Generate pdf if user set
-    generate_pdf = main_cf.get("generate_pdf", True)
-    if generate_pdf is True:
+    try:
         pdf_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".pdf"))
         algotrading.utils.generate_pdf_from_markdown(md_file_path, result_dir, pdf_file_path)
+    except:
+        logging.warning("Can not generate the pdf format report.Please read the markdown instead.")
 
     #remove png files
     images = os.listdir(".")

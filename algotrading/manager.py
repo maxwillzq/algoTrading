@@ -1,13 +1,18 @@
+"""Create the at_run CLI as the only entry."""
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import argparse
-import algotrading
+import copy
+import json
 import logging
+import sys
+
 import pandas as pd
 import yaml
-import json
-import copy
+
+import algotrading
+
 logger = logging.getLogger(__name__)
 
 class ConfigBase:

@@ -22,17 +22,20 @@ import algotrading.stock_info as si
 
 logger = logging.getLogger(__name__)
 
+
 def _convert_to_numeric(s):
     """
     Convert str to number.
     """
+
     def force_float(elt):
-        elt = elt.replace(',','')
+        elt = elt.replace(',', '')
 
         try:
             return float(elt)
         except:
             return elt
+
     if isinstance(s, float) or isinstance(s, int):
         return s
     if s is None:
@@ -45,43 +48,47 @@ def _convert_to_numeric(s):
         return force_float(s) * 1_000_000_000
     if '%' in s:
         s = s.strip("%")
-        return force_float(s) /100.0
-    
+        return force_float(s) / 100.0
+
     return force_float(s)
 
+
 class Sup_Res_Finder():
-    def isSupport(self, df,i):
+
+    def isSupport(self, df, i):
         support = df['Low'][i] < df['Low'][i-1]  and df['Low'][i] < df['Low'][i+1] \
         and df['Low'][i+1] < df['Low'][i+2] and df['Low'][i-1] < df['Low'][i-2]
 
         return support
 
-    def isResistance(self, df,i):
+    def isResistance(self, df, i):
         resistance = df['High'][i] > df['High'][i-1]  and df['High'][i] > df['High'][i+1] \
-        and df['High'][i+1] > df['High'][i+2] and df['High'][i-1] > df['High'][i-2] 
+        and df['High'][i+1] > df['High'][i+2] and df['High'][i-1] > df['High'][i-2]
 
         return resistance
-        
+
     def find_levels(self, df):
         levels = []
-        s =  np.mean(df['High'] - df['Low'])
-        
-        for i in range(2, df.shape[0]-2):
-            if self.isSupport(df,i):
+        s = np.mean(df['High'] - df['Low'])
+
+        for i in range(2, df.shape[0] - 2):
+            if self.isSupport(df, i):
                 l = df['Low'][i]
-            
-                if np.sum([abs(l-x) < s  for x in levels]) == 0:
+
+                if np.sum([abs(l - x) < s for x in levels]) == 0:
                     levels.append(l)
-            
-            elif self.isResistance(df,i):
+
+            elif self.isResistance(df, i):
                 l = df['High'][i]
-            
-                if np.sum([abs(l-x) < s  for x in levels]) == 0:
+
+                if np.sum([abs(l - x) < s for x in levels]) == 0:
                     levels.append(l)
-                    
+
         return levels
 
+
 class StockBase:
+
     def __init__(self, name, description=None):
         self.name = name
         self.description = description
@@ -90,7 +97,7 @@ class StockBase:
         self.markdown_notes += f"## {title}\n\n"
         self.df = None
         self.attribute = {}
-    
+
     def is_good_business(self):
         """
         define the checker function for good busniess:
@@ -105,20 +112,31 @@ class StockBase:
         stats = si.get_stats(self.name)
         logger.debug(stats)
         for index in range(len(stats)):
-            result[stats.Attribute.iloc[index]] = _convert_to_numeric(stats.Value.iloc[index])
-        
+            result[stats.Attribute.iloc[index]] = _convert_to_numeric(
+                stats.Value.iloc[index])
+
         # check rules
         if result["Profit Margin"] < 0.1:
-            message.append(f"fail: weak profit margin. profit margin = {result['Profit Margin']*100}")
+            message.append(
+                f"fail: weak profit margin. profit margin = {result['Profit Margin']*100}"
+            )
             status = False
         if result["Revenue (ttm)"] < 100000000:
-            message.append(f"fail: revenue less than 0.1 * billion." + 'Revenue = ' + str(result["Revenue (ttm)"]/1000000000) + "Billion")
+            message.append(f"fail: revenue less than 0.1 * billion." +
+                           'Revenue = ' +
+                           str(result["Revenue (ttm)"] / 1000000000) +
+                           "Billion")
             status = False
         if result["Levered Free Cash Flow (ttm)"] < 0:
-            message.append(f"fail: free cash flow is negative, Levered free cash flow (ttm) = " + str(result["Levered Free Cash Flow (ttm)"]/1000000000) + "Billion USD")
+            message.append(
+                f"fail: free cash flow is negative, Levered free cash flow (ttm) = "
+                + str(result["Levered Free Cash Flow (ttm)"] / 1000000000) +
+                "Billion USD")
             status = False
         if result["Quarterly Revenue Growth (yoy)"] < 0.1:
-            message.append(f"fail: revenue growth yoy less than 10%." + "rate = " + str(result["Quarterly Revenue Growth (yoy)"] * 100))
+            message.append(f"fail: revenue growth yoy less than 10%." +
+                           "rate = " +
+                           str(result["Quarterly Revenue Growth (yoy)"] * 100))
             status = False
         logger.info(message)
         result_dict = result
@@ -136,11 +154,11 @@ class StockBase:
             raise FileNotFoundError(f"{csv_file} does not exists.")
         self.df = pd.read_csv(csv_file)
         return self.df
-    
+
     def read_data_from_yahoo(self,
-                             start :int =-365,
-                             end: int =0,
-                             shift: int=0) -> None:
+                             start: int = -365,
+                             end: int = 0,
+                             shift: int = 0) -> None:
         """Read Stock Data from Yahoo Finance website.
         """
         today_date = dt.datetime.now()
@@ -150,7 +168,8 @@ class StockBase:
         try:
             df = web.DataReader(self.name, 'yahoo', start_date, end_date)
         except:
-            logger.debug(f"fail to get data for symbol {self.name} on yahoo. try fred")
+            logger.debug(
+                f"fail to get data for symbol {self.name} on yahoo. try fred")
             try:
                 df = web.DataReader(self.name, 'fred', start_date, end_date)
             except:
@@ -167,11 +186,11 @@ class StockBase:
                 df[item] = df[item].shift(shift, fill_value=last_day_value)
             self.attribute["virtual_shift"] = shift
         self.df = df
-    
+
     def calc_moving_average(self):
         # Step 2: generate moving average data and add new columns.
         volume_mean = self.df['Volume'].mean()
-        self.df['normalized_volume'] = self.df['Volume']/volume_mean
+        self.df['normalized_volume'] = self.df['Volume'] / volume_mean
         # Generate moving average data
         self.df["SMA5"] = self.df["Close"].rolling(5).mean().round(2)
         self.df["SMA10"] = self.df["Close"].rolling(10).mean().round(2)
@@ -179,12 +198,18 @@ class StockBase:
         self.df["SMA60"] = self.df["Close"].rolling(60).mean().round(2)
         self.df["SMA120"] = self.df["Close"].rolling(120).mean().round(2)
         self.df["SMA240"] = self.df["Close"].rolling(240).mean().round(2)
-        self.df['EMA5'] = self.df["Close"].ewm(span=5, adjust=False).mean().round(2)
-        self.df['EMA10'] = self.df["Close"].ewm(span=10, adjust=False).mean().round(2)
-        self.df['EMA20'] = self.df["Close"].ewm(span=20, adjust=False).mean().round(2)
-        self.df['EMA60'] = self.df["Close"].ewm(span=60, adjust=False).mean().round(2)
-        self.df['EMA120'] = self.df["Close"].ewm(span=120, adjust=False).mean().round(2)
-        self.df['EMA240'] = self.df["Close"].ewm(span=240, adjust=False).mean().round(2)
+        self.df['EMA5'] = self.df["Close"].ewm(span=5,
+                                               adjust=False).mean().round(2)
+        self.df['EMA10'] = self.df["Close"].ewm(span=10,
+                                                adjust=False).mean().round(2)
+        self.df['EMA20'] = self.df["Close"].ewm(span=20,
+                                                adjust=False).mean().round(2)
+        self.df['EMA60'] = self.df["Close"].ewm(span=60,
+                                                adjust=False).mean().round(2)
+        self.df['EMA120'] = self.df["Close"].ewm(span=120,
+                                                 adjust=False).mean().round(2)
+        self.df['EMA240'] = self.df["Close"].ewm(span=240,
+                                                 adjust=False).mean().round(2)
 
     def calc_macd(self):
         """_calculate MACD.
@@ -192,9 +217,13 @@ class StockBase:
         Signal Line (MACD_DEM): 9-day EMA of MACD Line
         MACD Histogram (MACD_OSC): MACD Line - Signal Line
         """
-        self.df['MACD_DIF'] = self.df["Close"].ewm(span=12, adjust=False).mean() - self.df["Close"].ewm(span=26, adjust=False).mean() # macd
-        self.df['MACD_DEM'] = self.df['MACD_DIF'].ewm(span=9, adjust=False).mean() # signal
-        self.df['MACD_OSC'] = self.df['MACD_DIF'] - self.df['MACD_DEM'] # histgram
+        self.df['MACD_DIF'] = self.df["Close"].ewm(
+            span=12, adjust=False).mean() - self.df["Close"].ewm(
+                span=26, adjust=False).mean()  # macd
+        self.df['MACD_DEM'] = self.df['MACD_DIF'].ewm(
+            span=9, adjust=False).mean()  # signal
+        self.df['MACD_OSC'] = self.df['MACD_DIF'] - self.df[
+            'MACD_DEM']  # histgram
 
     def read_stock_info(self):
         # Optional step 3: add more attributes.
@@ -210,7 +239,6 @@ class StockBase:
         except:
             logger.warn("can not get next_earning date")
 
-    
     def read_data(self, *args, **kwargs):
         """Generate standard data for next step analysis.
         """
@@ -229,26 +257,25 @@ class StockBase:
         self.read_stock_info()
         self.calc_moving_average()
         self.calc_macd()
-        self.calc_average_true_range(days=days) #  ATR
+        self.calc_average_true_range(days=days)  #  ATR
         self.calc_relative_strength_index(days=days)  # RSI
-        self.calc_momentum_indicator(days=days) # Momentum
-        self.calc_william_ratio(days=days) # W%R
-        self.calc_money_flow_index(days=days) #MFI
-        self.calc_bias_ratio(days=60) #bias_ratio
+        self.calc_momentum_indicator(days=days)  # Momentum
+        self.calc_william_ratio(days=days)  # W%R
+        self.calc_money_flow_index(days=days)  #MFI
+        self.calc_bias_ratio(days=60)  #bias_ratio
         self.calc_bull_bear_signal()
         self.calc_buy_sell_signal()
-        
+
         # download more data if possible
         try:
             self.stats_valuation = si.get_stats_valuation(self.name)
         except:
             self.stats_valuation = None
 
-        tmp = self.df[
-            ["Close", "normalized_volume", 
-            "SMA5", "SMA10", "SMA20",
-            "SMA60", "SMA120","SMA240"]
-            ].tail(5).to_markdown()
+        tmp = self.df[[
+            "Close", "normalized_volume", "SMA5", "SMA10", "SMA20", "SMA60",
+            "SMA120", "SMA240"
+        ]].tail(5).to_markdown()
         self.markdown_notes += f"\n\n{tmp}\n\n"
 
         # Generate delta ratio
@@ -256,7 +283,9 @@ class StockBase:
         for delta in [1, 5, 20]:
             key_name = f"{delta}D%"
             if last - delta > 0:
-                value = (self.df["Close"].iloc[last] - self.df["Close"].iloc[last - delta])/self.df["Close"].iloc[last - delta] * 100
+                value = (self.df["Close"].iloc[last] -
+                         self.df["Close"].iloc[last - delta]
+                         ) / self.df["Close"].iloc[last - delta] * 100
                 value = round(value, 2)
                 self.attribute[key_name] = value
             else:
@@ -271,7 +300,7 @@ class StockBase:
             self.attribute["short_term"] = "short"
         else:
             self.attribute["short_term"] = "undefined"
-        
+
         if df["SMA5"].iloc[-2] > df["SMA10"].iloc[-2] > df["SMA20"].iloc[-2]:
             self.attribute["yesterday_short_term"] = "long"
         elif df["SMA5"].iloc[-2] < df["SMA10"].iloc[-2] < df["SMA20"].iloc[-2]:
@@ -282,7 +311,8 @@ class StockBase:
         # mid-term signal
         if df["SMA20"].iloc[-1] > df["SMA60"].iloc[-1] > df["SMA120"].iloc[-1]:
             self.attribute["mid_term"] = "long"
-        elif df["SMA20"].iloc[-1] < df["SMA60"].iloc[-1] < df["SMA120"].iloc[-1]:
+        elif df["SMA20"].iloc[-1] < df["SMA60"].iloc[-1] < df["SMA120"].iloc[
+                -1]:
             self.attribute["mid_term"] = "short"
         else:
             self.attribute["mid_term"] = "undefined"
@@ -290,12 +320,13 @@ class StockBase:
         # long-term signal
         if df["SMA60"].iloc[-1] > df["SMA120"].iloc[-1] > df["SMA240"].iloc[-1]:
             self.attribute["long_term"] = "long"
-        elif df["SMA60"].iloc[-1] < df["SMA120"].iloc[-1] < df["SMA240"].iloc[-1]:
+        elif df["SMA60"].iloc[-1] < df["SMA120"].iloc[-1] < df["SMA240"].iloc[
+                -1]:
             self.attribute["long_term"] = "short"
         else:
             self.attribute["long_term"] = "undefined"
         return self.attribute
-        
+
     def plot(self, **kwargs):
         plot_style = 'plot_style_1'
         if 'plot_style' in kwargs:
@@ -309,7 +340,7 @@ class StockBase:
         except:
             pass
         #self.add_notes()
-        
+
         try:
             self.plot_earning(**kwargs)
         except:
@@ -330,23 +361,31 @@ class StockBase:
                 break
             df_sma = df[f"SMA{item}"]
             df_ema = df[f"EMA{item}"]
-            added_plots.append(
-                mpf.make_addplot(df_sma, color=color)
-            )
+            added_plots.append(mpf.make_addplot(df_sma, color=color))
             legend_names.append(f"SMA{item}")
             added_plots.append(
-                mpf.make_addplot(df_ema, color=color, linestyle='--')
-            )
+                mpf.make_addplot(df_ema, color=color, linestyle='--'))
             legend_names.append(f"EMA{item}")
-    
+
         # add MACD
         added_plots.extend([
-                mpf.make_addplot(self.df["MACD_OSC"],type='bar',width=0.7,panel=1,
-                                    color='dimgray',alpha=1,secondary_y=False),
-                mpf.make_addplot(self.df["MACD_DIF"], panel=1,color='fuchsia',secondary_y=False),
-                mpf.make_addplot(self.df["MACD_DEM"],panel=1,color='b',secondary_y=True),
-                ])
-        
+            mpf.make_addplot(self.df["MACD_OSC"],
+                             type='bar',
+                             width=0.7,
+                             panel=1,
+                             color='dimgray',
+                             alpha=1,
+                             secondary_y=False),
+            mpf.make_addplot(self.df["MACD_DIF"],
+                             panel=1,
+                             color='fuchsia',
+                             secondary_y=False),
+            mpf.make_addplot(self.df["MACD_DEM"],
+                             panel=1,
+                             color='b',
+                             secondary_y=True),
+        ])
+
         # add 抵扣价
         my_markers = []
         colors = []
@@ -354,55 +393,87 @@ class StockBase:
             marker = None
             color = 'b'
             # 抵扣价使用黄色
-            if len(self.df) - 1 - 20 == index or len(self.df)  - 1 - 60 == index or len(self.df) - 1 - 120 == index:
+            if len(self.df) - 1 - 20 == index or len(
+                    self.df) - 1 - 60 == index or len(
+                        self.df) - 1 - 120 == index:
                 marker = '*'
                 color = 'y'
             my_markers.append(marker)
             colors.append(color)
-        added_plots.append(mpf.make_addplot(self.df["Close"], type='scatter', marker=my_markers,markersize=45,color=colors))
+        added_plots.append(
+            mpf.make_addplot(self.df["Close"],
+                             type='scatter',
+                             marker=my_markers,
+                             markersize=45,
+                             color=colors))
 
         # add bias ratio
         bias_ratio = self.df['bias_ratio']
-        added_plots.extend(
-            [
-                mpf.make_addplot(bias_ratio,panel=3,type='bar',width=0.7,color='b',ylabel="bias_ratio", secondary_y=False),
-            ]
-        )
+        added_plots.extend([
+            mpf.make_addplot(bias_ratio,
+                             panel=3,
+                             type='bar',
+                             width=0.7,
+                             color='b',
+                             ylabel="bias_ratio",
+                             secondary_y=False),
+        ])
 
         # add rsi
         added_plots.extend([
-                mpf.make_addplot(self.df["RSI"], panel=4,color='fuchsia',ylabel="RSI",secondary_y=False),
-                mpf.make_addplot(self.df["MFI"], panel=4,color='black',ylabel="MFI(black),RSI",secondary_y=False),
-                mpf.make_addplot([70] * len(self.df), panel=4,color='r', linestyle='--', secondary_y=False),
-                mpf.make_addplot([30] * len(self.df), panel=4,color='r', linestyle='--', secondary_y=False),
-                mpf.make_addplot([50] * len(self.df), panel=4,color='g', linestyle='--', secondary_y=False),
-                ]),
+            mpf.make_addplot(self.df["RSI"],
+                             panel=4,
+                             color='fuchsia',
+                             ylabel="RSI",
+                             secondary_y=False),
+            mpf.make_addplot(self.df["MFI"],
+                             panel=4,
+                             color='black',
+                             ylabel="MFI(black),RSI",
+                             secondary_y=False),
+            mpf.make_addplot([70] * len(self.df),
+                             panel=4,
+                             color='r',
+                             linestyle='--',
+                             secondary_y=False),
+            mpf.make_addplot([30] * len(self.df),
+                             panel=4,
+                             color='r',
+                             linestyle='--',
+                             secondary_y=False),
+            mpf.make_addplot([50] * len(self.df),
+                             panel=4,
+                             color='g',
+                             linestyle='--',
+                             secondary_y=False),
+        ]),
 
         # add title
         last = len(df) - 1
-        daily_percentage = (df["Close"].iloc[last] - df["Close"].iloc[last - 1])/df["Close"].iloc[last - 1] * 100
+        daily_percentage = (df["Close"].iloc[last] - df["Close"].iloc[last - 1]
+                            ) / df["Close"].iloc[last - 1] * 100
         daily_percentage = round(daily_percentage, 2)
-        
-        d1 = df.index[ 0]
-        d2 = df.index[-1]
-        tdates = [(d1,d2)]
 
-        fig, axes = mpf.plot(df, 
-            type='candle', 
+        d1 = df.index[0]
+        d2 = df.index[-1]
+        tdates = [(d1, d2)]
+
+        fig, axes = mpf.plot(
+            df,
+            type='candle',
             style="yahoo",
             volume=True,
-            figsize=(12, 9), 
+            figsize=(12, 9),
             title=f"{self.name} today increase={daily_percentage}%",
             returnfig=True,
             volume_panel=2,
             addplot=added_plots,
             #tlines=[
             #    dict(tlines=tdates,tline_use=['open','close',#'high','low'],tline_method='least-squares',#colors='black')],
-            )
-        
+        )
 
         # Get pivot and plot
-        
+
         #if 'pivot_type' in kwargs and kwargs['pivot_type'] is not None:
         result = self.get_pivot(**kwargs)
         result.sort()
@@ -410,13 +481,13 @@ class StockBase:
         i = 0
         for pivot in result:
             if len(result) % 2 == 1 and i == len(result) // 2:
-                linestyle="-"
+                linestyle = "-"
                 color = 'y'
             elif i <= len(result) // 2:
-                linestyle="--"
+                linestyle = "--"
                 color = 'r'
             elif i > len(result) // 2:
-                linestyle="--"
+                linestyle = "--"
                 color = 'g'
             axes[0].axhline(y=pivot, color=color, linestyle=linestyle)
             i = i + 1
@@ -431,28 +502,32 @@ class StockBase:
         result_dir = kwargs['result_dir'] if 'result_dir' in kwargs else None
         if result_dir is not None:
             file_name = os.path.join(result_dir, image_name + ".png")
-            fig.savefig(file_name,dpi=300)
+            fig.savefig(file_name, dpi=300)
             plt.close('all')
             self.markdown_notes += "\n\n \pagebreak\n\n"
             self.markdown_notes += f"![{image_name}]({image_name}.png)\n\n\n"
             return file_name
         else:
             return fig, axes
-    
+
     def to_markdown(self):
         return self.markdown_notes
-    
+
     def plot_density(self, result_dir=None):
         legend_names = []
         df = self.df
-        plt.figure(figsize=(12,9))
-        axes = sns.distplot(df["Close"].dropna(), bins=30, color='purple', vertical=True)
-        raverage = sum(df["Close"] * df.Volume)/sum(df.Volume)
+        plt.figure(figsize=(12, 9))
+        axes = sns.distplot(df["Close"].dropna(),
+                            bins=30,
+                            color='purple',
+                            vertical=True)
+        raverage = sum(df["Close"] * df.Volume) / sum(df.Volume)
         raverage = round(raverage, 2)
         today_price = df["Close"].iloc[-1].round(2)
         axes.axhline(y=raverage, color='r', linestyle='--')
         axes.axhline(y=today_price, color='g')
-        legend_names.extend(["Volume", f"average={raverage}", f"today={today_price}"])
+        legend_names.extend(
+            ["Volume", f"average={raverage}", f"today={today_price}"])
         axes.legend(legend_names, loc="upper right")
         #step = param.get("step", 5)
         #plt.yticks(np.arange(rmin, rmax, step))
@@ -460,13 +535,13 @@ class StockBase:
         fig = plt.gcf()
         if result_dir is not None:
             file_name = os.path.join(result_dir, self.name + "_density.png")
-            fig.savefig(file_name,dpi=300)
+            fig.savefig(file_name, dpi=300)
             plt.close(fig)
             self.markdown_notes += f"![{self.name}]({self.name}_density.png)\n\n\n"
             return file_name
         else:
             return axes
-    
+
     def get_pivot(self, **kwargs):
 
         #pivot_type = "get_large_volume_pivot"
@@ -477,7 +552,6 @@ class StockBase:
         method = getattr(self, pivot_type)
         return method(**kwargs)
 
-
     def get_large_volume_pivot(self, **kwargs):
 
         interval = 20
@@ -485,17 +559,23 @@ class StockBase:
         indexes = []
         currentMaxLimit = 1.5
         for i in range(interval, len(self.df) - interval):
-            currentMax = max(self.df["normalized_volume"].iloc[i - interval:i + interval])
-            if currentMax == self.df["normalized_volume"].iloc[i] and currentMax > currentMaxLimit:
+            currentMax = max(self.df["normalized_volume"].iloc[i - interval:i +
+                                                               interval])
+            if currentMax == self.df["normalized_volume"].iloc[
+                    i] and currentMax > currentMaxLimit:
                 result.append(self.df["High"].iloc[i])
                 indexes.append(i)
-            
+
         result_df = self.df.iloc[indexes].round(2)
-        result_df = result_df.sort_values(["Close", "normalized_volume"], ascending=False)
-        result_df = result_df[["Close", "normalized_volume", "SMA5", "SMA10", "SMA20", "SMA60", "SMA120"]]
+        result_df = result_df.sort_values(["Close", "normalized_volume"],
+                                          ascending=False)
+        result_df = result_df[[
+            "Close", "normalized_volume", "SMA5", "SMA10", "SMA20", "SMA60",
+            "SMA120"
+        ]]
         self.markdown_notes += "\n\npivot table: \n\n"
         self.markdown_notes += f"\n\n{result_df.to_markdown()}\n\n"
-        return result   
+        return result
 
     def get_standard_pivot(self, **kwargs):
         """
@@ -511,7 +591,7 @@ class StockBase:
         interval = 20
         if 'interval' in kwargs:
             interval = int(kwargs['interval'])
-        
+
         high = max(self.df['High'].iloc[-interval:])
         low = min(self.df['High'].iloc[-interval:])
         close = np.average(self.df["Close"].iloc[-interval:])
@@ -524,7 +604,7 @@ class StockBase:
         for i in range(len(result)):
             result[i] = round(result[i], 2)
         return result
-    
+
     def get_support_resistance_point(self, **kwargs):
         interval = 200
         if 'interval' in kwargs:
@@ -536,7 +616,7 @@ class StockBase:
             result[i] = round(result[i], 2)
         result.sort()
         return result
-    
+
     def get_fibonacci_pivot(self, **kwargs):
         """
         To calculate the Base Pivot Point: Pivot Point (P) = (High + Low + Close)/3 
@@ -549,15 +629,15 @@ class StockBase:
         interval = 20
         if 'interval' in kwargs:
             interval = kwargs['interval']
-        
+
         high = max(self.df['High'].iloc[-interval:])
         low = min(self.df['High'].iloc[-interval:])
         close = np.average(self.df["Close"].iloc[-interval:])
         P = (high + low + close) / 3.0
         S1 = P + 0.382 * (low - high)
         S2 = P + 0.618 * (low - high)
-        R1 = P + 0.382* (high - low)
-        R2 = P + 0.618* (high - low)
+        R1 = P + 0.382 * (high - low)
+        R2 = P + 0.618 * (high - low)
         R3 = P + (high - low)
         result = [S1, S2, P, R1, R2, R3]
         for i in range(len(result)):
@@ -583,8 +663,8 @@ class StockBase:
         for i in range(len(idf)):
             if i == 0:
                 idf['prev_Close'].iloc[i] = idf["Close"].iloc[i]
-            else: 
-                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i-1]
+            else:
+                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i - 1]
         idf["ATR1"] = abs(idf['High'] - idf['Low'])
         idf["ATR2"] = abs(idf['High'] - idf['prev_Close'])
         idf["ATR3"] = abs(idf['Low'] - idf['prev_Close'])
@@ -601,7 +681,6 @@ class StockBase:
         self.df["RSI"] = idf.ta.rsi(length=days)
         return self.df["RSI"]
 
-
     def calc_momentum_indicator(self, days=14):
         """
         https://www.investopedia.com/articles/technical/081501.asp
@@ -609,10 +688,10 @@ class StockBase:
         idf = self.df.copy()
         idf['prev_Close'] = idf["Close"]
         for i in range(len(idf)):
-            if i-days < 0:
+            if i - days < 0:
                 idf['prev_Close'].iloc[i] = idf["Close"].iloc[i]
-            else: 
-                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i-days]
+            else:
+                idf['prev_Close'].iloc[i] = idf["Close"].iloc[i - days]
         idf['Momentum'] = idf["Close"] - idf['prev_Close']
         self.df["Momentum"] = idf["Momentum"]
         return self.df["Momentum"]
@@ -624,17 +703,17 @@ class StockBase:
         idf = self.df.copy()
         high = idf['High'].rolling(days).max()
         low = idf['Low'].rolling(days).min()
-        wr =  100 * (idf["Close"] - high) / (high - low)
+        wr = 100 * (idf["Close"] - high) / (high - low)
         wr.replace([np.nan, np.inf, -np.inf], 0, inplace=True)
         self.df['Williams_%R'] = wr
-        return self.df['Williams_%R']    
+        return self.df['Williams_%R']
 
     def calc_money_flow_index(self, days=14):
         """
         https://www.investopedia.com/terms/m/mfi.asp
         """
         idf = self.df.copy()
-        typical_price = (idf['High'] + idf['Low'] + idf["Close"])/3.0
+        typical_price = (idf['High'] + idf['Low'] + idf["Close"]) / 3.0
         raw_money_flow = typical_price * idf['Volume']
         positive_money_flow = raw_money_flow.copy()
         negative_money_flow = raw_money_flow.copy()
@@ -642,27 +721,27 @@ class StockBase:
             if i == 0:
                 positive_money_flow.iloc[i] = 0
                 negative_money_flow.iloc[i] = 0
-            else: 
-                prev_close= typical_price.iloc[i-1]
+            else:
+                prev_close = typical_price.iloc[i - 1]
                 close = typical_price.iloc[i]
                 if close >= prev_close:
                     negative_money_flow.iloc[i] = 0
                 else:
                     positive_money_flow.iloc[i] = 0
-        
-        positive_money_flow = positive_money_flow.rolling(days).mean()
-        negative_money_flow  = negative_money_flow.rolling(days).mean()
-        raw_money_flow = raw_money_flow.rolling(days).mean()
-        mfi = 100 * ( positive_money_flow / raw_money_flow )
-        self.df['MFI'] = mfi
-        return  self.df['MFI']
 
-    def calc_bias_ratio(self, days=20):
+        positive_money_flow = positive_money_flow.rolling(days).mean()
+        negative_money_flow = negative_money_flow.rolling(days).mean()
+        raw_money_flow = raw_money_flow.rolling(days).mean()
+        mfi = 100 * (positive_money_flow / raw_money_flow)
+        self.df['MFI'] = mfi
+        return self.df['MFI']
+
+    def calc_bias_ratio(self, days=60):
         """
-        https://www.investopedia.com/terms/b/bias.asp
+        https://www.moomoo.com/community/feed/106567357956101
         """
         mv = self.df["Close"].rolling(days).mean()
-        bias = self.df["Close"] - mv
+        bias = (self.df["Close"] - mv) / mv * 100
         self.df["bias_ratio"] = bias
         return self.df['bias_ratio']
 
@@ -671,44 +750,48 @@ class StockBase:
         idf = self.df.copy()
         idf['Date'] = pd.to_datetime(idf.index)
         idf['Date'] = idf['Date'].map(dt.datetime.toordinal)
-        
+
         data1 = idf.copy()
-        data1 = data1[len(data1)-step: len(data1)-1]
+        data1 = data1[len(data1) - step:len(data1) - 1]
 
         # high trend line
-        while len(data1)>10:
+        while len(data1) > 10:
             reg = linregress(
-                            x= data1['Date'],
-                            y=data1['High'],
+                x=data1['Date'],
+                y=data1['High'],
             )
             data1 = data1.loc[data1['High'] > reg[0] * data1['Date'] + reg[1]]
         reg = linregress(
-                        x= data1['Date'],
-                        y=data1['High'],
+            x=data1['Date'],
+            y=data1['High'],
         )
 
         idf['high_trend'] = reg[0] * idf['Date'] + reg[1]
 
         # low trend line
         data1 = idf.copy()
-        data1 = data1[len(data1)-step: len(data1)-1]
+        data1 = data1[len(data1) - step:len(data1) - 1]
 
-        while len(data1)>10:
+        while len(data1) > 10:
             reg = linregress(
-                            x= data1['Date'],
-                            y=data1['Low'],
-                            )
+                x=data1['Date'],
+                y=data1['Low'],
+            )
             data1 = data1.loc[data1['Low'] < reg[0] * data1['Date'] + reg[1]]
 
         reg = linregress(
-                            x= data1['Date'],
-                            y=data1['Low'],
-                            )
+            x=data1['Date'],
+            y=data1['Low'],
+        )
         idf['low_trend'] = reg[0] * idf['Date'] + reg[1]
 
         apds.extend([
-                    mpf.make_addplot(idf["high_trend"],type="line", marker='^', color='r'),
-                    mpf.make_addplot(idf["low_trend"], color='r')])
+            mpf.make_addplot(idf["high_trend"],
+                             type="line",
+                             marker='^',
+                             color='r'),
+            mpf.make_addplot(idf["low_trend"], color='r')
+        ])
         return apds
 
     def plot_trend_line(self):
@@ -720,18 +803,17 @@ class StockBase:
         rets = np.log(data1["Close"])
         x = data1["Date"]
         slope, intercept, r_value, p_value, std_err = linregress(x, rets)
-        idf['Prediction'] = np.e ** (intercept + slope * idf["Date"])
+        idf['Prediction'] = np.e**(intercept + slope * idf["Date"])
 
         result = {}
         for days in [365, 2 * 365, 3 * 365]:
-            predict_price = np.e ** (intercept + slope * (idf['Date'].iloc[-1] + days) )
+            predict_price = np.e**(intercept + slope *
+                                   (idf['Date'].iloc[-1] + days))
             predict_price = round(predict_price, 2)
             result[days] = predict_price
-        
+
         apds = []
-        apds.extend([
-                    mpf.make_addplot(idf["Prediction"], type="scatter")
-                    ])
+        apds.extend([mpf.make_addplot(idf["Prediction"], type="scatter")])
         return apds, result
 
     def calc_buy_sell_signal(self):
@@ -740,54 +822,63 @@ class StockBase:
         sell_score = 0
         messages = []
         #金叉
-        if idf["SMA60"].iloc[-1] > idf["SMA120"].iloc[-1] and idf["SMA60"].iloc[-6] < idf["SMA120"].iloc[-6]:
+        if idf["SMA60"].iloc[-1] > idf["SMA120"].iloc[-1] and idf[
+                "SMA60"].iloc[-6] < idf["SMA120"].iloc[-6]:
             buy_score += 1
             messages.append("SMA60 cross over SMA120 on up direction")
-        if idf["SMA20"].iloc[-1] > idf["SMA60"].iloc[-1] and idf["SMA20"].iloc[-6] < idf["SMA60"].iloc[-6]:
+        if idf["SMA20"].iloc[-1] > idf["SMA60"].iloc[-1] and idf["SMA20"].iloc[
+                -6] < idf["SMA60"].iloc[-6]:
             buy_score += 1
             messages.append("SMA20 cross over SMA60 on up direction")
-        if idf["SMA5"].iloc[-1] > idf["SMA20"].iloc[-1] and idf["SMA5"].iloc[-6] < idf["SMA20"].iloc[-6]:
+        if idf["SMA5"].iloc[-1] > idf["SMA20"].iloc[-1] and idf["SMA5"].iloc[
+                -6] < idf["SMA20"].iloc[-6]:
             buy_score += 1
             messages.append("SMA5 cross over SMA20 on up direction")
-        
+
         #死叉
-        if idf["SMA60"].iloc[-1] < idf["SMA120"].iloc[-1] and idf["SMA60"].iloc[-6] > idf["SMA120"].iloc[-6]:
+        if idf["SMA60"].iloc[-1] < idf["SMA120"].iloc[-1] and idf[
+                "SMA60"].iloc[-6] > idf["SMA120"].iloc[-6]:
             sell_score -= 1
             messages.append("SMA60 cross over SMA120 on down direction")
-        if idf["SMA20"].iloc[-1] < idf["SMA60"].iloc[-1] and idf["SMA20"].iloc[-6] > idf["SMA60"].iloc[-6]:
+        if idf["SMA20"].iloc[-1] < idf["SMA60"].iloc[-1] and idf["SMA20"].iloc[
+                -6] > idf["SMA60"].iloc[-6]:
             sell_score -= 1
             messages.append("SMA20 cross over SMA60 on down direction")
-        if idf["SMA5"].iloc[-1] < idf["SMA20"].iloc[-1] and idf["SMA5"].iloc[-6] > idf["SMA20"].iloc[-6]:
+        if idf["SMA5"].iloc[-1] < idf["SMA20"].iloc[-1] and idf["SMA5"].iloc[
+                -6] > idf["SMA20"].iloc[-6]:
             sell_score -= 1
             messages.append("SMA5 cross over SMA20 on down direction")
 
         if idf["MACD_OSC"].iloc[-1] > 0 and idf["MACD_OSC"].iloc[-6] < 0:
             buy_score += 1
             messages.append("MACD cross over 0 on up direction")
-        
+
         if idf["MACD_OSC"].iloc[-1] < 0 and idf["MACD_OSC"].iloc[-6] > 0:
             sell_score -= 1
             messages.append("MACD cross over 0 on down direction")
-        
+
         if idf["RSI"].iloc[-1] > 75:
-            sell_score -=1
+            sell_score -= 1
             messages.append("RSI is too strong, it means overbuy")
-        
+
         if idf["RSI"].iloc[-1] < 25:
-            buy_score +=1
+            buy_score += 1
             messages.append("RSI is too weak, it means over-sold")
-        
+
         self.attribute["buy_score"] = buy_score
         self.attribute["sell_score"] = sell_score
         self.attribute["buy_sell_comments"] = messages
         return buy_score, sell_score, messages
-    
+
     def get_price_change_table(self):
         """generate result_dict dict.
         key is "5D%, 10D% ..." or moving average "20MA% .."
         value is difference to this baseline
         """
-        name_list = ["1D%","5D%", "20D%", "short_term", "mid_term", "long_term", "buy_score"]
+        name_list = [
+            "1D%", "5D%", "20D%", "short_term", "mid_term", "long_term",
+            "buy_score"
+        ]
         result_dict = {}
         for name in name_list:
             result_dict[name] = self.attribute[name]
@@ -800,22 +891,24 @@ class StockBase:
         self.markdown_notes += "\n\n"
         if self.attribute["buy_score"] > 0 or self.attribute["sell_score"] > 0:
             for message in self.attribute["buy_sell_comments"]:
-                self.markdown_notes +=  f"- {message}\n"
+                self.markdown_notes += f"- {message}\n"
         self.markdown_notes += "\n\n"
 
-        # bias 
+        # bias
         bias_ratio = self.df["bias_ratio"]
         bias_ratio = bias_ratio.round(2)
 
         #bias_ratio_min_max_value = max(max(bias_ratio),  abs(min(bias_ratio)))
         #bias_ratio = bias_ratio / bias_ratio_min_max_value
-        result_dict["bias_ratio"] = f"{bias_ratio.iloc[-1]}/{bias_ratio.min()}/{bias_ratio.max()}"
+        result_dict[
+            "bias_ratio"] = f"{bias_ratio.iloc[-1]}/{bias_ratio.min()}/{bias_ratio.max()}"
 
         # about volume
         df_volume_mean = self.df['Volume'].mean()
         key_name = "vol_change%"
         num_days = 1
-        value = (self.df['Volume'].tail(num_days).sum() - df_volume_mean)/df_volume_mean * 100/num_days
+        value = (self.df['Volume'].tail(num_days).sum() -
+                 df_volume_mean) / df_volume_mean * 100 / num_days
         value = round(value, 2)
         result_dict[key_name] = value
         return result_dict
@@ -828,22 +921,24 @@ class StockBase:
         valuation = valuation.applymap(_convert_to_numeric)
         valuation = valuation.T
         valuation = valuation.sort_index()
-        tmp = plt.rcParams["figure.figsize"] 
-        plt.rcParams["figure.figsize"] = (20,20)
+        tmp = plt.rcParams["figure.figsize"]
+        plt.rcParams["figure.figsize"] = (20, 20)
         #import pdb
         #pdb.set_trace()
-        valuation[['Trailing P/E','Forward P/E', 'PEG Ratio (5 yr expected)', 'Price/Sales (ttm)','Price/Book (mrq)']].plot(subplots=True, grid=True)
+        valuation[[
+            'Trailing P/E', 'Forward P/E', 'PEG Ratio (5 yr expected)',
+            'Price/Sales (ttm)', 'Price/Book (mrq)'
+        ]].plot(subplots=True, grid=True)
         plt.rcParams["figure.figsize"] = tmp
         return valuation
-    
+
     def plot_earning(self, **kwargs):
 
-        plt.figure(figsize=(12,9))
+        plt.figure(figsize=(12, 9))
         fig, axes = plt.subplots(2)
-        
+
         # add earning history
-        earnings_history = si.get_earnings_history(self.name)
-        earnings_history = pd.DataFrame(earnings_history)
+        earnings_history = pd.DataFrame(si.get_earnings_history(self.name))
         earnings_history.dropna(inplace=True)
         earnings_history = earnings_history.set_index("startdatetime")
         earnings_history = earnings_history.sort_index()
@@ -854,33 +949,45 @@ class StockBase:
         result_dict["epsactual"] = list(earnings_history["epsactual"])
         result_dict["epsestimate"] = list(earnings_history["epsestimate"])
 
+        # Add future quarter earning estimate.
         earnings = si.get_earnings(self.name)
         info = si.get_analysts_info(self.name)
         result_dict["epsactual"].extend([None, None])
-        result_dict["epsestimate"].append(info["Earnings Estimate"].T.iloc[1].loc[1])
-        result_dict["epsestimate"].append(info["Earnings Estimate"].T.iloc[2].loc[1])
+        result_dict["epsestimate"].append(
+            info["Earnings Estimate"].T.iloc[1].loc[1])
+        result_dict["epsestimate"].append(
+            info["Earnings Estimate"].T.iloc[2].loc[1])
+
         result_df = pd.DataFrame(result_dict)
         this_year = dt.datetime.now().year
         next_year = this_year + 1
         new_row = {
-            "date": this_year,
-            "revenue": _convert_to_numeric(info["Revenue Estimate"].T.iloc[3].loc[1]),
+            "date":
+            this_year,
+            "revenue":
+            _convert_to_numeric(info["Revenue Estimate"].T.iloc[3].loc[1]),
             #"earnings": _convert_to_numeric(info["Earnings Estimate"].T.iloc[3].loc[1])
         }
-        earnings["yearly_revenue_earnings"] = earnings["yearly_revenue_earnings"].append(new_row, ignore_index=True)
+        earnings["yearly_revenue_earnings"] = earnings[
+            "yearly_revenue_earnings"].append(new_row, ignore_index=True)
         new_row = {
-            "date": next_year,
-            "revenue": _convert_to_numeric(info["Revenue Estimate"].T.iloc[4].loc[1]),
+            "date":
+            next_year,
+            "revenue":
+            _convert_to_numeric(info["Revenue Estimate"].T.iloc[4].loc[1]),
             #"earnings": _convert_to_numeric(info["Earnings Estimate"].T.iloc[4].loc[1])
         }
-        earnings["yearly_revenue_earnings"] = earnings["yearly_revenue_earnings"].append(new_row, ignore_index=True)
-        earnings["yearly_revenue_earnings"]["revenue"] = earnings["yearly_revenue_earnings"]["revenue"]/1000000000
+        earnings["yearly_revenue_earnings"] = earnings[
+            "yearly_revenue_earnings"].append(new_row, ignore_index=True)
+        earnings["yearly_revenue_earnings"]["revenue"] = earnings[
+            "yearly_revenue_earnings"]["revenue"] / 1000000000
         #earnings["yearly_revenue_earnings"] = earnings["yearly_revenue_earnings"]/1000000000
         earnings["yearly_revenue_earnings"].set_index('date', inplace=True)
-        earnings["yearly_revenue_earnings"]["revenue"].plot(ax=axes[0], marker='o', legend=["revenue(B)"])
+        earnings["yearly_revenue_earnings"]["revenue"].plot(
+            ax=axes[0], marker='o', legend=["revenue(B)"])
         #print(result_df)
         result_df.plot(ax=axes[1], marker='o')
- 
+
         # save to file if possible
         #fig = plt.gcf()
         image_name = self.name
@@ -888,8 +995,8 @@ class StockBase:
             image_name = kwargs['image_name']
         result_dir = kwargs['result_dir'] if 'result_dir' in kwargs else None
         if result_dir is not None:
-            file_name =  image_name + "_earnings.png"
-            fig.savefig(os.path.join(result_dir,file_name),dpi=300)
+            file_name = image_name + "_earnings.png"
+            fig.savefig(os.path.join(result_dir, file_name), dpi=300)
             plt.close(fig)
             self.markdown_notes += "\n\n \pagebreak\n\n"
             self.markdown_notes += f"![{image_name}]({file_name})\n\n\n"
@@ -897,7 +1004,6 @@ class StockBase:
         else:
             return fig, axes
 
- 
     def add_quick_summary(self):
         quick_summary_md = ""
         quick_summary_md += f"# Quick summary about {self.name}\n\n"
@@ -912,16 +1018,17 @@ class StockBase:
             pass
 
         for item in [
-            "sector",
-            "longBusinessSummary",  "country", "city", "trailingPE",  "priceToSalesTrailing12Months", "fiftyTwoWeekHigh","fiftyTwoWeekLow",
-            "pegRatio", "shortPercentOfFloat", "next_earnings_date"
-            ]:
+                "sector", "longBusinessSummary", "country", "city",
+                "trailingPE", "priceToSalesTrailing12Months",
+                "fiftyTwoWeekHigh", "fiftyTwoWeekLow", "pegRatio",
+                "shortPercentOfFloat", "next_earnings_date"
+        ]:
             try:
                 tmp_str = f"- {item}: {self.attribute[item]}\n\n"
                 quick_summary_md += tmp_str
             except:
                 pass
-        
+
         if self.stats_valuation:
             info = self.stats_valuation
             quick_summary_md += info.to_markdown() + "\n\n"
@@ -930,16 +1037,11 @@ class StockBase:
         quick_summary_md += info["Growth Estimates"].to_markdown() + "\n\n"
         #quick_summary_md += info["Revenue Estimate"].to_markdown() + "\n\n"
 
-
-        # finally, add it into markdown_notes  
+        # finally, add it into markdown_notes
         self.markdown_notes += quick_summary_md
         return quick_summary_md
-
 
     def add_notes(self):
         notes = algotrading.data.get_notes(self.name)
         self.markdown_notes += notes
         return notes
-
-
- 
