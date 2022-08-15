@@ -352,7 +352,7 @@ class StockBase:
         if 'mav' in kwargs:
             mav = kwargs['mav']
         colors = ['black', 'red', 'blue', 'yellow']
-        legend_names = []
+        legend_names = [None, None]
         added_plots = []
         for index in range(len(mav)):
             item = mav[index]
@@ -475,6 +475,7 @@ class StockBase:
         # Get pivot and plot
 
         #if 'pivot_type' in kwargs and kwargs['pivot_type'] is not None:
+        legend_names.append(None)
         result = self.get_pivot(**kwargs)
         result.sort()
         colors = ['r', 'g', 'b', 'y']
@@ -491,7 +492,7 @@ class StockBase:
                 color = 'g'
             axes[0].axhline(y=pivot, color=color, linestyle=linestyle)
             i = i + 1
-            legend_names.append(pivot)
+            # legend_names.append(pivot)
 
         axes[0].legend(legend_names, loc="upper left")
 
@@ -923,8 +924,6 @@ class StockBase:
         valuation = valuation.sort_index()
         tmp = plt.rcParams["figure.figsize"]
         plt.rcParams["figure.figsize"] = (20, 20)
-        #import pdb
-        #pdb.set_trace()
         valuation[[
             'Trailing P/E', 'Forward P/E', 'PEG Ratio (5 yr expected)',
             'Price/Sales (ttm)', 'Price/Book (mrq)'
@@ -949,9 +948,10 @@ class StockBase:
         result_dict["epsactual"] = list(earnings_history["epsactual"])
         result_dict["epsestimate"] = list(earnings_history["epsestimate"])
 
-        # Add future quarter earning estimate.
         earnings = si.get_earnings(self.name)
         info = si.get_analysts_info(self.name)
+
+        # Add future quarter earning estimate.
         result_dict["epsactual"].extend([None, None])
         result_dict["epsestimate"].append(
             info["Earnings Estimate"].T.iloc[1].loc[1])
