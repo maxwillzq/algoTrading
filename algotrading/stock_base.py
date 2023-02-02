@@ -166,9 +166,9 @@ class StockBase:
         start_date = today_date + dt.timedelta(start)
 
         try:
-            df = web.DataReader(self.name, 'yahoo', start_date, end_date)
+            df = yf.download(self.name, start=start_date, end=end_date)
         except:
-            logger.debug(
+            logging.info(
                 f"fail to get data for symbol {self.name} on yahoo. try fred")
             try:
                 df = web.DataReader(self.name, 'fred', start_date, end_date)

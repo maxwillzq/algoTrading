@@ -52,9 +52,10 @@ def plot_price_volume(df: pd.DataFrame, stock_name: Optional[str]=None, param: O
   for data_range in data_range_list:
     rets = np.log(df['Adj Close'].iloc[last - data_range : last])
     x = df.index[last-data_range:last]
-    slope, intercept, r_value, p_value, std_err = linregress(x, rets)
+    x_ind = range(len(rets))
+    slope, intercept, r_value, p_value, std_err = linregress(x_ind, rets)
     print("Linear" + str(data_range) + " = " + str(slope))
-    top.plot(x, np.e ** (intercept + slope*x), label="Linear" + str(data_range))
+    top.plot(x, np.e ** (intercept + slope*x_ind), label="Linear" + str(data_range))
   legend = top.legend(loc='upper left', shadow=True, fontsize='x-large')
   plt.show()
 
@@ -80,41 +81,71 @@ def plot_price_density(df: pd.DataFrame, param: Optional[Mapping]={}):
   plt.yticks(np.arange(rmin, rmax, step))
   plt.grid()
 
-def draw_moving_average_plot(df, stock_name, param={}, file_name=None):
-  # simple moving averages
-  lists = [20, 60, 120]
-  if "list" in param:
-    lists = param["list"]
-  plot = mplfinance.plot(df, 
-    type='candle', 
-    mav=lists, 
-    volume=True,
-    figsize=(12, 9), 
-    title=stock_name,
-    savefig=file_name
-    )
+def plot_moving_average(df: pd.DataFrame, stock_name: str, param: Mapping={'list': [20, 60, 120]}, file_name: Optional[str]=None):
+  """
+  Plots the stock's prices along with moving averages.
 
-def draw_price_to_ma_distance(df, stock_name, param={}):
-  ma = 50
-  if "MA" in param:
-    ma = param["MA"]
-  df['MA' + str(ma)] = df['Adj Close'].rolling(ma).mean()
-  plt.plot(df.index, df['Adj Close'] - df['MA' + str(ma)])
+  Args:
+      df (pandas.DataFrame): The dataframe containing the stock data.
+      stock_name (str): The name of the stock to be plotted.
+      param (dict, optional): Additional parameters to customize the plot. Defaults to an empty dictionary.
+      file_name (str, optional): The file name to save the plot. Defaults to None.
+
+  Returns:
+      None
+
+  Raises:
+      None
+  """
+  # simple moving averages
+  lists = param["list"]
+  if file_name:
+    mplfinance.plot(df, 
+      type='candle', 
+      mav=lists, 
+      volume=True,
+      figsize=(12, 9), 
+      title=stock_name,
+      savefig=file_name
+      )
+  else:
+    mplfinance.plot(df, 
+      type='candle', 
+      mav=lists, 
+      volume=True,
+      figsize=(12, 9), 
+      title=stock_name)
+
+def plot_price_minus_moving_average(df: pd.DataFrame, stock_name: str, param: Mapping={'MA': 50}):
+  """Plots the difference between stock's adjusted close price and its moving average.
+
+  Args:
+      df (pd.DataFrame): The dataframe containing the stock data.
+      stock_name (str): The name of the stock.
+      param (dict, optional): Additional parameters to customize the plot. Defaults to an empty dictionary.
+
+  Returns:
+      None
+
+  Raises:
+      None
+  """
+  ma = param["MA"]
+  df[f'MA{ma}'] = df['Adj Close'].rolling(ma).mean()
+  plt.plot(df.index, df['Adj Close'] - df[f'MA{ma}'])
   plt.title(f"{stock_name} Price - MA{ma}" )
   plt.grid()
   plt.show()
 
-def indicator_1(df, param={}):
+def ma_discount(df, param={'MA': 50}):
   """
-  The discount rate if use MA price as baseline
+  The discount rate using moving average as baseline.
   """
-  MA = 50
-  if 'MA' in param:
-    MA = param['MA']
+  MA = param['MA']
   result =  -(df['Adj Close'] - df['Adj Close'].rolling(MA).mean())/df['Adj Close'] * 100
   return result
 
-def indicator_2(df,param={}):
+def linear_regression_gains(df,param={'MA': 90}):
   """
   The potential gain rate after 1 year use linear model
   """
@@ -123,39 +154,41 @@ def indicator_2(df,param={}):
       returns = np.log(closes)
       x = np.arange(len(returns))
       slope, _, rvalue, _, _ = linregress(x, returns)
-      return ((1 + slope) ** 252) * (rvalue ** 2)  # annualize slope and multiply by R^2
+      # annualize slope and multiply by R^2
+      return ((1 + slope) ** 252) * (rvalue ** 2)  
   
-  MA = 90
-  if 'MA' in param:
-    MA = param['MA']
+  
+  MA = param['MA']
   result = (df.rolling(MA)['Adj Close'].apply(momentum, raw=False) - 1)
-  #print("result = ", result)
   return result
 
 def calc_volatility(stock_name_list, output_file_name=None):
     """
+    Calculates the volatility of a set of stock prices and plots the results as a bar graph.
     https://www.machinelearningplus.com/machine-learning/portfolio-optimization-python-example/
     """
-    test = {}
-    for stock_name in stock_name_list:
-        stock = algotrading.stock.Stock(stock_name)
-        stock.read_data()
-        test[stock_name] = stock.df['Close']
-    test = pd.DataFrame(test)
-    volatility_df = test.pct_change().apply(lambda x: np.log(1+x)).std().apply(lambda x: x*np.sqrt(250))
-    volatility_df = volatility_df.sort_values(ascending=True)
-    average = np.mean(volatility_df).round(2)
-    axes = volatility_df.plot(kind='bar')
-    axes.axhline(y=average, color='y', linestyle='--',label="volatility")
-    axes.set_title("volatility index")
+    stocks = [algotrading.stock.Stock(name) for name in stock_name_list]
+    for stock in stocks:
+      stock.read_data()
+    data = {stock.name: stock.df['Close'] for stock in stocks}
+    data = pd.DataFrame(data)
+    returns = data.pct_change().apply(lambda x: np.log(1 + x))
+    volatility = returns.std().apply(lambda x: x * np.sqrt(250))
+    volatility.sort_values(ascending=True, inplace=True)
+    average = volatility.mean().round(2)
+    
+    fig, ax = plt.subplots()
+    volatility.plot(kind='bar', ax=ax)
+    ax.axhline(y=average, color='y', linestyle='--',label="volatility")
+    ax.set_title("volatility index")
+    ax.legend()
 
-    fig = plt.gcf()
     if output_file_name:
         fig.savefig(output_file_name,dpi=300)
         plt.close(fig)
         return output_file_name
     else:
-        return axes
+        return ax
 
 def generate_portfolio(stock_name_list, result_dir=None):
     """

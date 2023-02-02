@@ -61,8 +61,12 @@ install_requires.extend([
     'pyyaml>=6.0',
     'tabulate',
     'jinja2',
-    'dataclasses'
-
+    'dataclasses',
+    'yfinance',
+    # Google python libs
+    'absl-py',
+    'jax',
+    'jaxlib',
 ])
 
 ################################################################################
