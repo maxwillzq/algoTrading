@@ -23,6 +23,13 @@ Then run the algoTrading at_run command line interface to see help message
 at_run --help
 ```
 
+You can use unittest to pick specific test to run.
+
+For example:
+```
+python -m unittest algotrading.utils.plotting_test.test_plot_price_density
+```
+
 ### Profiling
 
 here we use cProfile for profiling and snaviz for visualization. see the [link](https://medium.com/@narenandu/profiling-and-visualization-tools-in-python-89a46f578989)
