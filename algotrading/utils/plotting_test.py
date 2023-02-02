@@ -13,9 +13,10 @@ class TestPlotting(test_utils.TestCaseBase):
   def test_plot_price_volume(self):
     df = self.stock.df
     plotting.plot_price_volume(df)
-    import matplotlib.pyplot as plt
-    plt.show()
 
+  def test_plot_price_density(self):
+    df = self.stock.df
+    plotting.plot_price_density(df)
 
 if __name__ == "__main__":
   absltest.main()

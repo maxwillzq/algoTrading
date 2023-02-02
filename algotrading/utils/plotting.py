@@ -58,7 +58,20 @@ def plot_price_volume(df: pd.DataFrame, stock_name: Optional[str]=None, param: O
   legend = top.legend(loc='upper left', shadow=True, fontsize='x-large')
   plt.show()
 
-def draw_density_plot(df, param = {}):
+def plot_price_density(df: pd.DataFrame, param: Optional[Mapping]={}):
+  """
+  Plots a density plot of the stock's adjusted close prices.
+
+  Args:
+      df (pandas.DataFrame): The dataframe containing the stock data.
+      param (dict, optional): Additional parameters to customize the plot. Defaults to an empty dictionary.
+
+  Returns:
+      None
+
+  Raises:
+      None
+  """
   plt.figure(figsize=(12,9))
   ax = sns.distplot(df['Adj Close'].dropna(), bins=50, color='purple', vertical=True)
   rmin = min(df['Adj Close']) * 0.9
