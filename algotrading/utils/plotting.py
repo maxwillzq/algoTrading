@@ -9,9 +9,30 @@ import logging
 import numpy as np
 import os
 import algotrading
+from typing import Optional,Mapping
 logger = logging.getLogger(__name__)
 
-def draw_regular_plot(df, stock_name=None, param={}):
+def plot_price_volume(df: pd.DataFrame, stock_name: Optional[str]=None, param: Optional[Mapping]={}):
+  """
+    This function creates a subplot of two graphs, the first graph shows the "Adj Close"
+    value of the stock, and the second graph shows the stock's trading "Volume".
+    Additionally, this function can also plot the linear regression trendline of the "Adj Close" 
+    values for the specified data range in the "data_range_list" parameter. 
+
+    Parameters:
+    df (pandas.DataFrame): The dataframe containing the stock data. 
+    stock_name (str, optional): The name of the stock to be displayed on the title of the plot. 
+                                If not provided, the title will be empty.
+    param (dict, optional): A dictionary of optional parameters. 
+                            The following parameter is supported:
+                            - data_range_list (list): A list of integers, representing the data range
+                              in days to be used to calculate the linear regression trendline. 
+                              The default is [90].
+
+    Returns:
+    None
+
+    """
   plt.figure(figsize=(12,9))
   top = plt.subplot2grid((12,9), (0, 0), rowspan=10, colspan=9)
   bottom = plt.subplot2grid((12,9), (10,0), rowspan=2, colspan=9)
