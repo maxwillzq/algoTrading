@@ -11,6 +11,18 @@ sudo apt get install pandoc
 
 ## Developer guide
 
+Run command 
+
+```
+python setup.py develop
+```
+
+Then run the algoTrading at_run command line interface to see help message
+
+```
+at_run --help
+```
+
 ### Profiling
 
 here we use cProfile for profiling and snaviz for visualization. see the [link](https://medium.com/@narenandu/profiling-and-visualization-tools-in-python-89a46f578989)
