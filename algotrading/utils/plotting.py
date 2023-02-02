@@ -80,6 +80,7 @@ def plot_price_density(df: pd.DataFrame, param: Optional[Mapping]={}):
   step = param.get("step", 5)
   plt.yticks(np.arange(rmin, rmax, step))
   plt.grid()
+  plt.show()
 
 def plot_moving_average(df: pd.DataFrame, stock_name: str, param: Mapping={'list': [20, 60, 120]}, file_name: Optional[str]=None):
   """
