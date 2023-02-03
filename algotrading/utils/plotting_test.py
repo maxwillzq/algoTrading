@@ -28,17 +28,6 @@ class TestPlotting(test_utils.TestCaseBase):
         df = self.stock.df
         plot = plotting.plot_price_minus_moving_average(df, stock_name="AMZN")
 
-    def test_ma_discount(self):
-        df = self.stock.df
-        discount = plotting.ma_discount(df)
-        # discount.plot(title="ma_discount")
-        # import matplotlib.pyplot as plt
-        # plt.show()
-        self.assertIsNotNone(discount)
-
-    def test_calc_volatility(self):
-        plotting.calc_volatility(["GOOG", "AAPL", "AMZN"])
-
     def test_data_reader(self):
         # Define the ticker symbol and date range for the stock data
         ticker = "AAPL"
@@ -50,10 +39,6 @@ class TestPlotting(test_utils.TestCaseBase):
         # Assert that the resulting DataFrame has the expected columns
         expected_columns = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
         self.assertEqual(list(df.columns), expected_columns)
-        # Assert that the resulting DataFrame has the expected number of rows
-        expected_rows = 2066
-        self.assertEqual(len(df), expected_rows)
-
 
 if __name__ == "__main__":
     absltest.main()

@@ -32,7 +32,8 @@ def default_name(class_or_fn):
     return misc_utils.camelcase_to_snakecase(class_or_fn.__name__)
 
 
-def default_object_name(obj): return default_name(type(obj))
+def default_object_name(obj):
+    return default_name(type(obj))
 
 
 class Registry(object):
@@ -73,12 +74,14 @@ class Registry(object):
     See `__init__` doc.
     """
 
-    def __init__(self,
-                 registry_name,
-                 default_key_fn=default_name,
-                 validator=None,
-                 on_set=None,
-                 value_transformer=(lambda k, v: v)):
+    def __init__(
+        self,
+        registry_name,
+        default_key_fn=default_name,
+        validator=None,
+        on_set=None,
+        value_transformer=(lambda k, v: v),
+    ):
         """Construct a new registry.
 
         Args:
@@ -134,7 +137,8 @@ class Registry(object):
             key = self.default_key(value)
         if key in self:
             raise KeyError(
-                "key %s already registered in registry %s" % (key, self._name))
+                "key %s already registered in registry %s" % (key, self._name)
+            )
         if not callable(value):
             raise ValueError("value must be callable")
         self.validate(key, value)
@@ -193,8 +197,10 @@ class Registry(object):
 
     def __getitem__(self, key):
         if key not in self:
-            raise KeyError("%s never registered with registry %s. Available:\n %s" %
-                           (key, self.name, display_list_by_prefix(sorted(self), 4)))
+            raise KeyError(
+                "%s never registered with registry %s. Available:\n %s"
+                % (key, self.name, display_list_by_prefix(sorted(self), 4))
+            )
         value = self._registry[key]
         return self._value_transformer(key, value)
 

@@ -14,8 +14,7 @@ def import_usr_dir(usr_dir):
 
     dir_path = os.path.abspath(os.path.expanduser(usr_dir).rstrip("/"))
     containing_dir, module_name = os.path.split(dir_path)
-    logging.info("Importing user module %s from path %s", module_name,
-                 containing_dir)
+    logging.info("Importing user module %s from path %s", module_name, containing_dir)
     sys.path.insert(0, containing_dir)
     importlib.import_module(module_name)
     sys.path.pop(0)

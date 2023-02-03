@@ -18,8 +18,9 @@ class TestCaseBase(absltest.TestCase):
         """Create StockBase object and download all data."""
         super().setUp()
         self.stock = stock_base.StockBase("AMZN")
-        self.stock.read_data(data_input_file=os.path.join(
-            TOP_DIR, "test_data/AMZN_20220530.csv"))
+        self.stock.read_data(
+            data_input_file=os.path.join(TOP_DIR, "test_data/AMZN_20220530.csv")
+        )
         if "Adj Close" not in self.stock.df.columns:
             self.stock.df["Adj Close"] = self.stock.df["Close"]
         self.stock.df.index = pd.to_datetime(self.stock.df["Date"])

@@ -4,7 +4,7 @@ from algotrading.utils import *
 import pandas as pd
 import pandas_datareader.data as web
 import matplotlib
-import mplfinance        as mpf
+import mplfinance as mpf
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import linregress
@@ -19,16 +19,16 @@ import logging
 from collections import OrderedDict
 from datetime import timedelta
 import shutil
-import algotrading 
+import algotrading
 from algotrading.utils.plotting import calc_volatility, generate_portfolio
+
 logger = logging.getLogger(__name__)
+
 
 def main():
     parser = argparse.ArgumentParser(description="plot stock")
     parser.add_argument(
-        "--result_dir",
-        default="./save_visualization",
-        help="The result dir"
+        "--result_dir", default="./save_visualization", help="The result dir"
     )
     parser.add_argument(
         "--stock_list",
@@ -65,21 +65,22 @@ def main():
         stock_name_dict = algotrading.data.get_data_dict("fred.yaml")
     elif stock_name_list == "sp500":
         tmp_df = algotrading.data.get_SP500_list()
-        tmp_df = tmp_df[tmp_df['GICS Sector'] == "Information Technology"]
+        tmp_df = tmp_df[tmp_df["GICS Sector"] == "Information Technology"]
         for index in range(len(tmp_df)):
-            name = tmp_df['Symbol'].iloc[index]
+            name = tmp_df["Symbol"].iloc[index]
             stock_name_dict[name] = name
     else:
-        stock_name_list = [item for item in args.stock_list.split(',')]
+        stock_name_list = [item for item in args.stock_list.split(",")]
         for item in stock_name_list:
-            stock_name_dict[item] = item   
+            stock_name_dict[item] = item
 
     result_dir = args.result_dir
-    #output_file_path = os.path.join(result_dir, "stock_volatility.png")
-    #calc_volatility(stock_name_dict.keys(), output_file_path)
+    # output_file_path = os.path.join(result_dir, "stock_volatility.png")
+    # calc_volatility(stock_name_dict.keys(), output_file_path)
     generate_portfolio(stock_name_dict.keys(), result_dir)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
 
 # test command
