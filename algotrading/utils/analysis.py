@@ -155,3 +155,4 @@ def generate_portfolio(stock_name_list, result_dir=None):
     else:
         plt.show()
         return fig, markdown_notes
+
