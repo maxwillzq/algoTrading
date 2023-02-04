@@ -48,25 +48,23 @@ install_requires = []
 setup_requires = []
 tests_require = []
 install_requires.extend([
-    'pandas',
-    'pandas_datareader>=0.10.0',
-    'matplotlib',
-    'seaborn',
-    'datetime',
-    'numpy',
-    'mplfinance',
-    'pypandoc',
-    'yahoo_fin',
-    'pandas_ta',
-    'pyyaml>=6.0',
-    'tabulate',
-    'jinja2',
-    'dataclasses',
-    'yfinance',
+    #'pandas',
+    #'pandas_datareader',
+    #'matplotlib',
+    #'seaborn',
+    #'datetime',
+    #'numpy',
+    #'mplfinance',
+    #'pypandoc',
+    #'yahoo_fin',
+    #'pandas_ta',
+    #'pyyaml>=6.0',
+    #'tabulate',
+    #'jinja2',
+    #'dataclasses',
+    #'yfinance',
     # Google python libs
-    'absl-py',
-    'jax',
-    'jaxlib',
+    #'absl-py',
 ])
 
 ################################################################################

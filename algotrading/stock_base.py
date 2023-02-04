@@ -95,7 +95,7 @@ class StockBase:
         self.markdown_notes = ""
         title = self.description if self.description else self.name
         self.markdown_notes += f"## {title}\n\n"
-        self.df = None
+        self.df =pd.DataFrame()
         self.attribute = {}
 
     def is_good_business(self):
