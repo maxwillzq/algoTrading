@@ -18,22 +18,23 @@ def macd(close, fast_window=12, slow_window=26, signal_window=9):
     histogram = macd - signal
     return macd, signal, histogram
 
-macd, signal, histogram = macd(df['Close'])
-df['MACD'] = macd
-df['Signal Line'] = signal
+
+macd, signal, histogram = macd(df["Close"])
+df["MACD"] = macd
+df["Signal Line"] = signal
 
 # Plot the stock prices and MACD in separate sub-panels
-fig, axs = plt.subplots(2, 1, figsize=(10,8))
+fig, axs = plt.subplots(2, 1, figsize=(10, 8))
 
-axs[0].plot(df['Close'], label='Close', color='blue')
-axs[0].set_xlabel('Time')
+axs[0].plot(df["Close"], label="Close", color="blue")
+axs[0].set_xlabel("Time")
 axs[0].set_title(f"{name} at {dt.datetime.now()}")
-axs[0].set_ylabel('Close', color='blue')
+axs[0].set_ylabel("Close", color="blue")
 
-axs[1].plot(df['MACD'], label='MACD', color='red')
-axs[1].plot(df['Signal Line'], label='Signal Line', color='green')
-axs[1].set_xlabel('Time')
-axs[1].set_ylabel('MACD/Signal Line', color='red')
+axs[1].plot(df["MACD"], label="MACD", color="red")
+axs[1].plot(df["Signal Line"], label="Signal Line", color="green")
+axs[1].set_xlabel("Time")
+axs[1].set_ylabel("MACD/Signal Line", color="red")
 
-plt.legend(loc='best')
+plt.legend(loc="best")
 plt.show()
