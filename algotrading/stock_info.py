@@ -54,7 +54,7 @@ def force_float(elt):
     except:
         return elt
     
-def _convert_to_numeric(s):
+def convert_to_numeric(s):
 
     if "M" in s:
         s = s.strip("M")
@@ -623,7 +623,7 @@ def _raw_get_daily_info(site):
     for field in fields_to_change:
         
         if type(df[field][0]) == str:
-            df[field] = df[field].map(_convert_to_numeric)
+            df[field] = df[field].map(convert_to_numeric)
             
     session.close()
     
@@ -669,7 +669,7 @@ def get_top_crypto():
     for field in fields_to_change:
         
         if type(df[field][0]) == str:
-            df[field] = df[field].map(lambda x: _convert_to_numeric(str(x)))
+            df[field] = df[field].map(lambda x: convert_to_numeric(str(x)))
             
             
     session.close()        

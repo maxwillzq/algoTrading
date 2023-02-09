@@ -48,19 +48,19 @@ def convert_to_numeric(s):
             return float(s)
     except:
         return s
- 
+
 
 class Sup_Res_Finder():
 
     def isSupport(self, df, i):
-        support = df['Low'][i] < df['Low'][i-1]  and df['Low'][i] < df['Low'][i+1] \
-        and df['Low'][i+1] < df['Low'][i+2] and df['Low'][i-1] < df['Low'][i-2]
+        support = df['Low'][i] < df['Low'][i - 1] and df['Low'][i] < df['Low'][i + 1] \
+            and df['Low'][i + 1] < df['Low'][i + 2] and df['Low'][i - 1] < df['Low'][i - 2]
 
         return support
 
     def isResistance(self, df, i):
-        resistance = df['High'][i] > df['High'][i-1]  and df['High'][i] > df['High'][i+1] \
-        and df['High'][i+1] > df['High'][i+2] and df['High'][i-1] > df['High'][i-2]
+        resistance = df['High'][i] > df['High'][i - 1] and df['High'][i] > df['High'][i + 1] \
+            and df['High'][i + 1] > df['High'][i + 2] and df['High'][i - 1] > df['High'][i - 2]
 
         return resistance
 
@@ -92,12 +92,12 @@ class StockBase:
         self.markdown_notes = ""
         title = self.description if self.description else self.name
         self.markdown_notes += f"## {title}\n\n"
-        self.df =pd.DataFrame()
+        self.df = pd.DataFrame()
         self.attribute = {}
 
     def is_good_business(self):
         """
-        define the checker function for good busniess:
+        define the checker function for good business:
         - Good profit margin. Margin > 10%
         - Revenue keep grow. YOY rate > 20%
         - Revenue > 0.1 Billion USD
@@ -119,21 +119,21 @@ class StockBase:
             )
             status = False
         if result["Revenue (ttm)"] < 100000000:
-            message.append(f"fail: revenue less than 0.1 * billion." +
-                           'Revenue = ' +
-                           str(result["Revenue (ttm)"] / 1000000000) +
-                           "Billion")
+            message.append(f"fail: revenue less than 0.1 * billion."
+                           + 'Revenue = '
+                           + str(result["Revenue (ttm)"] / 1000000000)
+                           + "Billion")
             status = False
         if result["Levered Free Cash Flow (ttm)"] < 0:
             message.append(
                 f"fail: free cash flow is negative, Levered free cash flow (ttm) = "
-                + str(result["Levered Free Cash Flow (ttm)"] / 1000000000) +
-                "Billion USD")
+                + str(result["Levered Free Cash Flow (ttm)"] / 1000000000)
+                + "Billion USD")
             status = False
         if result["Quarterly Revenue Growth (yoy)"] < 0.1:
-            message.append(f"fail: revenue growth yoy less than 10%." +
-                           "rate = " +
-                           str(result["Quarterly Revenue Growth (yoy)"] * 100))
+            message.append(f"fail: revenue growth yoy less than 10%."
+                           + "rate = "
+                           + str(result["Quarterly Revenue Growth (yoy)"] * 100))
             status = False
         logger.info(message)
         result_dict = result
@@ -175,7 +175,7 @@ class StockBase:
         if 'Adj Close' in df:
             df.drop(columns=['Adj Close'], inplace=True)
 
-        #add shift if need
+        # add shift if need
         if shift != 0:
             logger.info("add virtual shifting for research purpose.")
             for item in df.columns:
@@ -209,8 +209,9 @@ class StockBase:
                                                  adjust=False).mean().round(2)
 
     def calc_macd(self):
-        """_calculate MACD.
-        MACD Line (MACD_DIFF): (12-day EMA - 26-day EMA)
+        """Calculate MACD (Moving Average Convergence Divergence).
+
+        MACD Line (MACD_DIFF): 12-day Exponential Moving Average (EMA) - 26-day EMA
         Signal Line (MACD_DEM): 9-day EMA of MACD Line
         MACD Histogram (MACD_OSC): MACD Line - Signal Line
         """
@@ -220,7 +221,7 @@ class StockBase:
         self.df['MACD_DEM'] = self.df['MACD_DIF'].ewm(
             span=9, adjust=False).mean()  # signal
         self.df['MACD_OSC'] = self.df['MACD_DIF'] - self.df[
-            'MACD_DEM']  # histgram
+            'MACD_DEM']
 
     def read_stock_info(self):
         # Optional step 3: add more attributes.
@@ -254,12 +255,12 @@ class StockBase:
         self.read_stock_info()
         self.calc_moving_average()
         self.calc_macd()
-        self.calc_average_true_range(days=days)  #  ATR
+        self.calc_average_true_range(days=days)  # ATR
         self.calc_relative_strength_index(days=days)  # RSI
         self.calc_momentum_indicator(days=days)  # Momentum
         self.calc_william_ratio(days=days)  # W%R
-        self.calc_money_flow_index(days=days)  #MFI
-        self.calc_bias_ratio(days=60)  #bias_ratio
+        self.calc_money_flow_index(days=days)  # MFI
+        self.calc_bias_ratio(days=60)  # bias_ratio
         self.calc_bull_bear_signal()
         self.calc_buy_sell_signal()
 
@@ -280,8 +281,8 @@ class StockBase:
         for delta in [1, 5, 20]:
             key_name = f"{delta}D%"
             if last - delta > 0:
-                value = (self.df["Close"].iloc[last] -
-                         self.df["Close"].iloc[last - delta]
+                value = (self.df["Close"].iloc[last]
+                         - self.df["Close"].iloc[last - delta]
                          ) / self.df["Close"].iloc[last - delta] * 100
                 value = round(value, 2)
                 self.attribute[key_name] = value
@@ -336,7 +337,7 @@ class StockBase:
             self.add_quick_summary()
         except:
             pass
-        #self.add_notes()
+        # self.add_notes()
 
         try:
             self.plot_earning(**kwargs)
@@ -465,13 +466,13 @@ class StockBase:
             returnfig=True,
             volume_panel=2,
             addplot=added_plots,
-            #tlines=[
+            # tlines=[
             #    dict(tlines=tdates,tline_use=['open','close',#'high','low'],tline_method='least-squares',#colors='black')],
         )
 
         # Get pivot and plot
 
-        #if 'pivot_type' in kwargs and kwargs['pivot_type'] is not None:
+        # if 'pivot_type' in kwargs and kwargs['pivot_type'] is not None:
         legend_names.append(None)
         result = self.get_pivot(**kwargs)
         result.sort()
@@ -527,9 +528,9 @@ class StockBase:
         legend_names.extend(
             ["Volume", f"average={raverage}", f"today={today_price}"])
         axes.legend(legend_names, loc="upper right")
-        #step = param.get("step", 5)
-        #plt.yticks(np.arange(rmin, rmax, step))
-        #plt.grid()
+        # step = param.get("step", 5)
+        # plt.yticks(np.arange(rmin, rmax, step))
+        # plt.grid()
         fig = plt.gcf()
         if result_dir is not None:
             file_name = os.path.join(result_dir, self.name + "_density.png")
@@ -542,9 +543,9 @@ class StockBase:
 
     def get_pivot(self, **kwargs):
 
-        #pivot_type = "get_large_volume_pivot"
+        # pivot_type = "get_large_volume_pivot"
         pivot_type = "get_standard_pivot"
-        #pivot_type = "get_support_resistance_point"
+        # pivot_type = "get_support_resistance_point"
         if 'pivot_type' in kwargs:
             pivot_type = kwargs['pivot_type']
         method = getattr(self, pivot_type)
@@ -557,8 +558,8 @@ class StockBase:
         indexes = []
         currentMaxLimit = 1.5
         for i in range(interval, len(self.df) - interval):
-            currentMax = max(self.df["normalized_volume"].iloc[i - interval:i +
-                                                               interval])
+            currentMax = max(self.df["normalized_volume"].iloc[i - interval:i
+                                                               + interval])
             if currentMax == self.df["normalized_volume"].iloc[
                     i] and currentMax > currentMaxLimit:
                 result.append(self.df["High"].iloc[i])
@@ -805,8 +806,8 @@ class StockBase:
 
         result = {}
         for days in [365, 2 * 365, 3 * 365]:
-            predict_price = np.e**(intercept + slope *
-                                   (idf['Date'].iloc[-1] + days))
+            predict_price = np.e**(intercept + slope
+                                   * (idf['Date'].iloc[-1] + days))
             predict_price = round(predict_price, 2)
             result[days] = predict_price
 
@@ -819,7 +820,7 @@ class StockBase:
         buy_score = 0
         sell_score = 0
         messages = []
-        #金叉
+        # 金叉
         if idf["SMA60"].iloc[-1] > idf["SMA120"].iloc[-1] and idf[
                 "SMA60"].iloc[-6] < idf["SMA120"].iloc[-6]:
             buy_score += 1
@@ -833,7 +834,7 @@ class StockBase:
             buy_score += 1
             messages.append("SMA5 cross over SMA20 on up direction")
 
-        #死叉
+        # 死叉
         if idf["SMA60"].iloc[-1] < idf["SMA120"].iloc[-1] and idf[
                 "SMA60"].iloc[-6] > idf["SMA120"].iloc[-6]:
             sell_score -= 1
@@ -882,7 +883,7 @@ class StockBase:
             result_dict[name] = self.attribute[name]
         result_dict["Close"] = self.df.Close.iloc[-1]
         result_dict["name"] = self.name
-        #result_dict["description"] = self.description
+        # result_dict["description"] = self.description
         self.markdown_notes += f"\n\n long_term: {result_dict['long_term']}, "
         self.markdown_notes += f" mid_term: {result_dict['mid_term']}, "
         self.markdown_notes += f" short_term: {result_dict['short_term']}, "
@@ -896,8 +897,8 @@ class StockBase:
         bias_ratio = self.df["bias_ratio"]
         bias_ratio = bias_ratio.round(2)
 
-        #bias_ratio_min_max_value = max(max(bias_ratio),  abs(min(bias_ratio)))
-        #bias_ratio = bias_ratio / bias_ratio_min_max_value
+        # bias_ratio_min_max_value = max(max(bias_ratio),  abs(min(bias_ratio)))
+        # bias_ratio = bias_ratio / bias_ratio_min_max_value
         result_dict[
             "bias_ratio"] = f"{bias_ratio.iloc[-1]}/{bias_ratio.min()}/{bias_ratio.max()}"
 
@@ -905,15 +906,15 @@ class StockBase:
         df_volume_mean = self.df['Volume'].mean()
         key_name = "vol_change%"
         num_days = 1
-        value = (self.df['Volume'].tail(num_days).sum() -
-                 df_volume_mean) / df_volume_mean * 100 / num_days
+        value = (self.df['Volume'].tail(num_days).sum()
+                 - df_volume_mean) / df_volume_mean * 100 / num_days
         value = round(value, 2)
         result_dict[key_name] = value
         return result_dict
 
     def plot_valuation(self):
         stock_name = self.name
-        assert self.stats_valuation, "need generate data first."
+        assert self.stats_valuation is not None, "need generate data first."
         valuation = self.stats_valuation
         valuation = valuation.set_index('Unnamed: 0')
         valuation = valuation.applymap(convert_to_numeric)
@@ -963,7 +964,7 @@ class StockBase:
             this_year,
             "revenue":
             convert_to_numeric(info["Revenue Estimate"].T.iloc[3].loc[1]),
-            #"earnings": convert_to_numeric(info["Earnings Estimate"].T.iloc[3].loc[1])
+            # "earnings": convert_to_numeric(info["Earnings Estimate"].T.iloc[3].loc[1])
         }
         earnings["yearly_revenue_earnings"] = earnings[
             "yearly_revenue_earnings"].append(new_row, ignore_index=True)
@@ -972,21 +973,21 @@ class StockBase:
             next_year,
             "revenue":
             convert_to_numeric(info["Revenue Estimate"].T.iloc[4].loc[1]),
-            #"earnings": convert_to_numeric(info["Earnings Estimate"].T.iloc[4].loc[1])
+            # "earnings": convert_to_numeric(info["Earnings Estimate"].T.iloc[4].loc[1])
         }
         earnings["yearly_revenue_earnings"] = earnings[
             "yearly_revenue_earnings"].append(new_row, ignore_index=True)
         earnings["yearly_revenue_earnings"]["revenue"] = earnings[
             "yearly_revenue_earnings"]["revenue"] / 1000000000
-        #earnings["yearly_revenue_earnings"] = earnings["yearly_revenue_earnings"]/1000000000
+        # earnings["yearly_revenue_earnings"] = earnings["yearly_revenue_earnings"]/1000000000
         earnings["yearly_revenue_earnings"].set_index('date', inplace=True)
         earnings["yearly_revenue_earnings"]["revenue"].plot(
             ax=axes[0], marker='o', legend=["revenue(B)"])
-        #print(result_df)
+        # print(result_df)
         result_df.plot(ax=axes[1], marker='o')
 
         # save to file if possible
-        #fig = plt.gcf()
+        # fig = plt.gcf()
         image_name = self.name
         if "image_name" in kwargs:
             image_name = kwargs['image_name']
@@ -1032,7 +1033,7 @@ class StockBase:
 
         info = si.get_analysts_info(self.name)
         quick_summary_md += info["Growth Estimates"].to_markdown() + "\n\n"
-        #quick_summary_md += info["Revenue Estimate"].to_markdown() + "\n\n"
+        # quick_summary_md += info["Revenue Estimate"].to_markdown() + "\n\n"
 
         # finally, add it into markdown_notes
         self.markdown_notes += quick_summary_md

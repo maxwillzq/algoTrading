@@ -1,9 +1,7 @@
 """Create the at_run CLI as the only entry."""
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
 import argparse
 import copy
+from collections import defaultdict
 import json
 import logging
 import sys
@@ -12,69 +10,10 @@ import pandas as pd
 import yaml
 
 import algotrading
+from algotrading.utils.config_base import ConfigBase
 
 logger = logging.getLogger(__name__)
 
-class ConfigBase:
-    """ base class for configuration
-
-    Args:
-        abc ([type]): [description]
-    """
-
-    def __init__(self):
-        self._data = {}
-
-    def read_from_dict(self, cf):  # Type: dict -> None
-        """assign python dictionary to config
-        """
-        assert isinstance(cf, dict)
-        self._data = copy.deepcopy(cf)
-
-    def save(self, file_path, format='json'):
-        """save config file as json and yaml file
-
-        Args:
-            file_path (str): the saved file path
-            format (str, optional): the saved format. Defaults to 'json'.
-            Only support 2 formats: 'json' or 'yaml'
-        """
-        assert format == 'json' or format == 'yaml'
-
-    def set_config_data(self, key, value):  # Type: (dict) -> None
-        assert isinstance(key, str)
-        key_array = key.split('/')
-        data = self._data
-        for key in key_array[:-1]:
-            if key not in data:
-                data[key] = {}
-            data = data[key]
-        if key_array[-1] in data:
-            logger.info('overwrite the key {}  by value {}'.format(key_array[-1], value))
-        data[key_array[-1]] = value
-
-    # Type: (Union[str, None]) -> Any
-    def get_config_data(self, input_key=None, default_value=None):
-        if input_key is None:
-            return default_value
-        data = self._data
-        key_array = input_key.split('/')
-        for key in key_array:
-            if key not in data:
-                logger.debug("empty key name \"{}\", will use default value".format(input_key))
-                return default_value
-            data = data[key]
-        return data
-
-    def __str__(self):
-        return str(self._data)
-
-    def __repr__(self):
-        return self._data
-
-    def checker(self):  # Type: () -> Bool
-        logger.info("Should never reach me")
-        return False
 
 class Manager:
     
@@ -97,22 +36,14 @@ def run_main_flow(args):
     # load config from config file
     # command line argument has higher priority than config file
     main_cf = ConfigBase()
-    main_cf.read_from_file(args.config)
+    if args.config:
+        main_cf.read_from_file(args.config)
     if args.result_dir:
-        main_cf.set_config_data("result_dir", args.result_dir)
-    if args.extra is not None:
-        extra_dict = dict(args.extra)
-        for key in extra_dict:
-            value = extra_dict[key]
-            if value == "False":
-                value = False
-            elif value == "True":
-                value = True
-            main_cf.set_config_data(key, value)
+        main_cf.set_config_data("result_dir", args.result_dir,**dict(args.extra or {}))
 
     ## run tasks
-    man = Manager()
-    man.prepare(main_cf)
+    man = Manager(input_config=main_cf)
+    man.prepare()
     man.run()
     man.done()
 

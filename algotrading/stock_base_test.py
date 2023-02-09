@@ -44,9 +44,7 @@ class TestStockClass(test_utils.TestCaseBase):
 
     def test_plot_valuation(self):
         self.stock.plot_valuation()
-    
-    def test_test(self):
-        pass
+
     
 if __name__ == "__main__":
     absltest.main()
