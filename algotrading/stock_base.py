@@ -23,35 +23,32 @@ import algotrading.stock_info as si
 logger = logging.getLogger(__name__)
 
 
-def _convert_to_numeric(s):
+def convert_to_numeric(s):
     """
-    Convert str to number.
+    Convert a string to its numeric representation, handling different cases such as 'M' for millions, 'B' for billions, and '%' for percentage.
+    If the input is already a float or integer, the function returns the input without any modification. If the input is None, it returns None.
+
+    Args:
+      s: The input string to be converted.
+
+    Return:
+      The numeric representation of the input string.
     """
 
-    def force_float(elt):
-        elt = elt.replace(',', '')
-
-        try:
-            return float(elt)
-        except:
-            return elt
-
-    if isinstance(s, float) or isinstance(s, int):
+    if isinstance(s, (float, int)) or s is None:
         return s
-    if s is None:
+    try:
+        s = s.replace(',', '')
+        if s[-1] == '%':
+            return float(s[:-1]) / 100.0
+        elif s[-1] in ('M', 'B'):
+            scale = {'M': 10**6, 'B': 10**9}[s[-1]]
+            return float(s[:-1]) * scale
+        else:
+            return float(s)
+    except:
         return s
-    if "M" in s:
-        s = s.strip("M")
-        return force_float(s) * 1_000_000
-    if "B" in s:
-        s = s.strip("B")
-        return force_float(s) * 1_000_000_000
-    if '%' in s:
-        s = s.strip("%")
-        return force_float(s) / 100.0
-
-    return force_float(s)
-
+ 
 
 class Sup_Res_Finder():
 
@@ -112,7 +109,7 @@ class StockBase:
         stats = si.get_stats(self.name)
         logger.debug(stats)
         for index in range(len(stats)):
-            result[stats.Attribute.iloc[index]] = _convert_to_numeric(
+            result[stats.Attribute.iloc[index]] = convert_to_numeric(
                 stats.Value.iloc[index])
 
         # check rules
@@ -919,7 +916,7 @@ class StockBase:
         assert self.stats_valuation, "need generate data first."
         valuation = self.stats_valuation
         valuation = valuation.set_index('Unnamed: 0')
-        valuation = valuation.applymap(_convert_to_numeric)
+        valuation = valuation.applymap(convert_to_numeric)
         valuation = valuation.T
         valuation = valuation.sort_index()
         tmp = plt.rcParams["figure.figsize"]
@@ -965,8 +962,8 @@ class StockBase:
             "date":
             this_year,
             "revenue":
-            _convert_to_numeric(info["Revenue Estimate"].T.iloc[3].loc[1]),
-            #"earnings": _convert_to_numeric(info["Earnings Estimate"].T.iloc[3].loc[1])
+            convert_to_numeric(info["Revenue Estimate"].T.iloc[3].loc[1]),
+            #"earnings": convert_to_numeric(info["Earnings Estimate"].T.iloc[3].loc[1])
         }
         earnings["yearly_revenue_earnings"] = earnings[
             "yearly_revenue_earnings"].append(new_row, ignore_index=True)
@@ -974,8 +971,8 @@ class StockBase:
             "date":
             next_year,
             "revenue":
-            _convert_to_numeric(info["Revenue Estimate"].T.iloc[4].loc[1]),
-            #"earnings": _convert_to_numeric(info["Earnings Estimate"].T.iloc[4].loc[1])
+            convert_to_numeric(info["Revenue Estimate"].T.iloc[4].loc[1]),
+            #"earnings": convert_to_numeric(info["Earnings Estimate"].T.iloc[4].loc[1])
         }
         earnings["yearly_revenue_earnings"] = earnings[
             "yearly_revenue_earnings"].append(new_row, ignore_index=True)

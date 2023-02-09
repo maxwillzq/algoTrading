@@ -3,11 +3,21 @@ from __future__ import (absolute_import, division, print_function,
 
 from absl.testing import absltest
 import os
-
 import algotrading
 from algotrading.utils import plotting
 from algotrading.utils import test_utils
 from algotrading import stock_base
+
+ class TestConvertToNumeric(absltest.TestCase):
+    
+    def testconvert_to_numeric(self):
+        self.assertEqual(stock_base.convert_to_numeric("100M"), 100000000)
+        self.assertEqual(stock_base.convert_to_numeric("100B"), 100000000000)
+        self.assertEqual(stock_base.convert_to_numeric("100"), 100.0)
+        self.assertEqual(stock_base.convert_to_numeric("100.5"), 100.5)
+        self.assertEqual(stock_base.convert_to_numeric("100,000"), 100000.0)
+        self.assertEqual(stock_base.convert_to_numeric("100.5%"), 0.1005)
+        self.assertEqual(stock_base.convert_to_numeric(None), None)
 
 class TestStockClass(test_utils.TestCaseBase):
     """Test stock_base class."""
