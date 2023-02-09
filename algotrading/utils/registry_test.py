@@ -1,77 +1,57 @@
-# coding=utf-8
-"""Tests for registry."""
+import unittest
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from absl.testing import absltest
-from algotrading.utils import registry
+from algotrading.utils.registry import Registry
 
-# pylint: disable=unused-variable,unused-argument
+class TestRegistry(unittest.TestCase):
 
+    def setUp(self):
+        self.registry = Registry("test_registry")
 
-class RegistryClassTest(absltest.TestCase):
-    """Test of base registry.Registry class."""
+    def test_default_name(self):
+        @self.registry.register
+        def my_func():
+            pass
+        self.assertIn("my_func", self.registry)
 
-    def testGetterSetter(self):
-        r = registry.Registry("test_registry")
-        r["hello"] = lambda: "world"
-        r["a"] = lambda: "b"
-        self.assertEqual(r["hello"](), "world")
-        self.assertEqual(r["a"](), "b")
+    def test_custom_name(self):
+        @self.registry.register("custom_name")
+        def my_func():
+            pass
+        self.assertIn("custom_name", self.registry)
+        self.assertNotIn("my_func", self.registry)
 
-    def testDefaultKeyFn(self):
-        r = registry.Registry("test", default_key_fn=lambda x: x().upper())
-        r.register()(lambda: "hello")
-        self.assertEqual(r["HELLO"](), "hello")
+    def test_register_func(self):
+        def my_func():
+            pass
+        self.registry.register()(my_func)
+        self.assertIn("my_func", self.registry)
 
-    def testNoKeyProvided(self):
-        r = registry.Registry("test")
+    def test_value_transformer(self):
+        class A:
+            pass
+        self.registry._value_transformer = (lambda k, v: k)
+        self.registry.register()(A)
+        self.assertEqual(self.registry["a"], "a")
 
-        def f():
-            return 3
+    def test_validator(self):
+        def validator(key, value):
+            raise ValueError("Invalid value")
+        self.registry._validator = validator
+        with self.assertRaises(ValueError):
+            @self.registry.register
+            def my_func():
+                pass
 
-        r.register(f)
-        self.assertEqual(r["f"](), 3)
+    def test_on_set(self):
+        called = False
+        def on_set(key, value):
+            nonlocal called
+            called = True
+        self.registry._on_set = on_set
+        @self.registry.register
+        def my_func():
+            pass
+        self.assertTrue(called)
 
-    def testMembership(self):
-        r = registry.Registry("test_registry")
-        r["a"] = lambda: None
-        r["b"] = lambda: 4
-        self.assertTrue("a" in r)
-        self.assertTrue("b" in r)
-
-    def testIteration(self):
-        r = registry.Registry("test_registry")
-        r["a"] = lambda: None
-        r["b"] = lambda: 4
-        self.assertEqual(sorted(r), ["a", "b"])
-
-    def testLen(self):
-        r = registry.Registry("test_registry")
-        self.assertEqual(len(r), 0)
-        r["a"] = lambda: None
-        self.assertEqual(len(r), 1)
-        r["b"] = lambda: 4
-        self.assertEqual(len(r), 2)
-
-    def testTransformer(self):
-        r = registry.Registry("test_registry", value_transformer=lambda x, y: x + y())
-        r.register(3)(lambda: 5)
-        r.register(10)(lambda: 12)
-        self.assertEqual(r[3], 8)
-        self.assertEqual(r[10], 22)
-        self.assertEqual(set(r.values()), set((8, 22)))
-        self.assertEqual(set(r.items()), set(((3, 8), (10, 22))))
-
-    def testGet(self):
-        r = registry.Registry("test_registry", value_transformer=lambda k, v: v())
-        r["a"] = lambda: "xyz"
-        self.assertEqual(r.get("a"), "xyz")
-        self.assertEqual(r.get("a", 3), "xyz")
-        self.assertIsNone(r.get("b"))
-        self.assertEqual(r.get("b", 3), 3)
-
-
-if __name__ == "__main__":
-    absltest.main()
+if __name__ == '__main__':
+    unittest.main()

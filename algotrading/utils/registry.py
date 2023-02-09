@@ -11,10 +11,17 @@ accessed/queried similar to dictionaries, keyed by default by `snake_case`
 equivalents.
 
 """
-from __future__ import absolute_import, division, print_function
-
 import collections
-from algotrading.utils import misc_utils
+import re
+
+def camelcase_to_snakecase(name):
+    # Camel case to snake case utils
+    _first_cap_re = re.compile("(.)([A-Z][a-z0-9]+)")
+    _all_cap_re = re.compile("([a-z0-9])([A-Z])")
+    s1 = _first_cap_re.sub(r"\1_\2", name)
+    return _all_cap_re.sub(r"\1_\2", s1).lower()
+
+
 
 
 def default_name(class_or_fn):
@@ -29,7 +36,7 @@ def default_name(class_or_fn):
     Returns:
       Default name for registration.
     """
-    return misc_utils.camelcase_to_snakecase(class_or_fn.__name__)
+    return camelcase_to_snakecase(class_or_fn.__name__)
 
 
 def default_object_name(obj):
@@ -199,7 +206,7 @@ class Registry(object):
         if key not in self:
             raise KeyError(
                 "%s never registered with registry %s. Available:\n %s"
-                % (key, self.name, display_list_by_prefix(sorted(self), 4))
+                % (key, self.name,sorted(self))
             )
         value = self._registry[key]
         return self._value_transformer(key, value)

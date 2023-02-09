@@ -47,10 +47,13 @@ def run_main_flow(args):
     man.run()
     man.done()
 
-def main():  # type: () -> None
-    parser = argparse.ArgumentParser(
-        description='run whole flow\n',
-    )
+def parse_args():
+    """
+    Parse command-line arguments.
+
+    :return: Parsed arguments.
+    """
+    parser = argparse.ArgumentParser(description='Run the main flow of the manager.')
     parser.add_argument('--config', default=None, required=True,
                         help="set main flow config file")
     parser.add_argument('--result_dir', required=False,
@@ -59,10 +62,12 @@ def main():  # type: () -> None
                         type=lambda kv: kv.split("="), dest='extra',
                         help="key value pairs for all new created options.",
                         required=False)
-    if len(sys.argv) == 1:
-        parser.print_help(sys.stderr)
-        sys.exit(1)
-    args = parser.parse_args()
+
+
+    return parser.parse_args()
+
+def main():  # type: () -> None
+    args = parse_args()
     return run_main_flow(args)
 
 if __name__ == '__main__':
