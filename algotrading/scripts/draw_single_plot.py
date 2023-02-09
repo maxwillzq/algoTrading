@@ -90,10 +90,10 @@ def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
 
 
 def get_stock_name_dict(stock_list: str) -> Dict[str, str]:
-    """Converrt usr config stock_list into stock_name_dict
+    """Convert usr config stock_list into stock_name_dict
 
     Args:
-        stock_list (str): stock_list seperated by comma or file name. Example: "AMZN,GOOG".
+        stock_list (str): stock_list separated by comma or file name. Example: "AMZN,GOOG".
 
     Returns:
         Dict[str,str]:  key value pair. key = stock symbol, value = long stock name.
@@ -101,16 +101,8 @@ def get_stock_name_dict(stock_list: str) -> Dict[str, str]:
     result = {}
     if isinstance(stock_list, Dict):
         result = stock_list
-    elif stock_list == "shuping":
-        result = algotrading.data.get_data_dict("shuping_stock_tickers.yaml")
-    elif stock_list == "401k":
-        result = algotrading.data.get_data_dict("mutual_fund_tickers.yaml")
-    elif stock_list == "keyao":
-        result = algotrading.data.get_data_dict("keyao_stock_tickers.yaml")
-    elif stock_list == "etf":
-        result = algotrading.data.get_data_dict("etf_tickers.yaml")
-    elif stock_list == "fred":
-        result = algotrading.data.get_data_dict("fred.yaml")
+    elif stock_list in ("shuping", "mutual_fund", "keyao", "etf", "fred"):
+        result = algotrading.data.get_data_dict(f"{stock_list}.yaml")
     elif stock_list.startswith("get_"):
         method = getattr(algotrading.data, stock_list)
         result_list = method()
