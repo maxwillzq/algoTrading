@@ -29,25 +29,6 @@ def command_executor(cmd, stdout=None):
     return True
 
 
-def render_template_with_dict(
-    template_string: str, render_dict: dict, result_file_path=None
-) -> str:
-    """
-    return the render string with template and python dictionary
-    """
-    template_env = jinja2.Environment(
-        trim_blocks=True,
-        lstrip_blocks=True,
-        undefined=jinja2.DebugUndefined,
-    )
-    template = template_env.from_string(template_string)
-    result = template.render(render_dict)
-    if result_file_path:
-        with open(result_file_path, "w") as f:
-            f.write(result)
-    return result
-
-
 def read_dict_from_file(file_path):
     """read config from json or yaml file
 
