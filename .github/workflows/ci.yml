@@ -33,16 +33,16 @@ jobs:
       id: test_run
 
     - name: Report status
-        if: steps.test_run.outputs.status == 'failed'
-        uses: actions/github-script@v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          script: |
-            github.pulls.createReview({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              event: 'REQUEST_CHANGES',
-              body: 'Tests failed, please fix the errors and try again.'
-            });
+      if: steps.test_run.outputs.status == 'failed'
+      uses: actions/github-script@v6
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        script: |
+          github.pulls.createReview({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number,
+            event: 'REQUEST_CHANGES',
+            body: 'Tests failed, please fix the errors and try again.'
+          });
