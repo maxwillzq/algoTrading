@@ -34,14 +34,14 @@ jobs:
 
     - name: Set status
       if: steps.test_run.outputs.status == 'failed'
-      uses: actions/bin/filter@v1
+      uses: actions/bin/filter@master
       with:
         args: fail
         fail-on-error: true
 
     - name: Report status
       if: steps.test_run.outputs.status == 'failed'
-      uses: actions/github-script@0.9.1
+      uses: actions/github-script@v6
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
