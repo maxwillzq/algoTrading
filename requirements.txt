@@ -10,3 +10,4 @@ scipy
 seaborn
 pypandoc
 pandas_datareader
+pyyaml
