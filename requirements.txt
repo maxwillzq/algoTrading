@@ -5,8 +5,8 @@ DateTime
 Jinja2
 mplfinance
 pytest
-PyYAML
 scikit-learn
 scipy
 seaborn
 pypandoc
+pandas_datareader
