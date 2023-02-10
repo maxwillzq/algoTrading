@@ -3,7 +3,8 @@ import tempfile
 import json
 import yaml
 from collections import defaultdict
-from config_base import ConfigBase
+import algotrading
+from algotrading.utils.config_base import ConfigBase
 
 class TestConfigBase(unittest.TestCase):
 
