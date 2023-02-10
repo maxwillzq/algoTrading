@@ -57,7 +57,7 @@ install_requires.extend([
     'mplfinance',
     'pypandoc',
     #'yahoo_fin',
-    #'pandas_ta',
+    'pandas_ta',
     'pyyaml>=6.0',
     #'tabulate',
     'jinja2',

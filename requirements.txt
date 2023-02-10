@@ -11,3 +11,4 @@ seaborn
 pypandoc
 pandas_datareader
 pyyaml
+pandas_ta
