@@ -501,7 +501,7 @@ class StockBase:
         result_dir = kwargs['result_dir'] if 'result_dir' in kwargs else None
         if result_dir is not None:
             file_name = os.path.join(result_dir, image_name + ".png")
-            fig.savefig(file_name, dpi=300)
+            fig.savefig(file_name, dpi=150)
             plt.close('all')
             self.markdown_notes += "\n\n \pagebreak\n\n"
             self.markdown_notes += f"![{image_name}]({image_name}.png)\n\n\n"

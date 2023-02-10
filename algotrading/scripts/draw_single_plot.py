@@ -11,6 +11,8 @@ from typing import Any, Dict, List
 
 import algotrading
 import algotrading.utils
+from  algotrading.utils.misc_utils import generate_report_from_markdown
+from  algotrading.utils.misc_utils import read_dict_from_file
 import matplotlib
 import matplotlib.pyplot as plt
 import mplfinance as mpf
@@ -21,6 +23,8 @@ import seaborn as sns
 import yaml
 from algotrading.utils import plotting
 from scipy.stats import linregress
+from jinja2 import Template
+from algotrading import manager
 
 logging.basicConfig(
     format="%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s",
@@ -31,65 +35,70 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 # start = dt.datetime(end.year - 1, end.month, end.day)
 
-# User setup area: choose stock symbol list
-
-
 def generate_md_summary_from_changed_table(price_change_table, sort_by="1D%"):
     price_change_table_pd = pd.DataFrame(price_change_table)
     sort_by_list = sort_by.split(",")
     price_change_table_pd = price_change_table_pd.sort_values(sort_by_list)
+    if len(price_change_table_pd) == 1:
+        return ""
+    result_str = Template("""
+## price change table summary
 
-    result_str = ""
-    result_str += "## price change table summary\n\n"
-    result_str += "Quick summary:\n\n"
-    try:
-        tmp = price_change_table_pd.nlargest(3, "1D%")
-        result_str += f"- top 3 gainer today: { [name for name in tmp.name] }\n\n"
-        result_str += tmp.to_markdown()
-        result_str += "\n\n"
+### Quick summary:
 
-        tmp = price_change_table_pd.nsmallest(3, "1D%")
-        result_str += f"- top 3 loser today: { [name for name in tmp.name] }\n\n"
-        result_str += tmp.to_markdown()
-        result_str += "\n\n"
-    except:
-        pass
+{% for item in summary %}
+- {{ item.title }}: {{ item.names }}
 
-    try:
-        tmp = price_change_table_pd.nlargest(3, "vol_change%")
-        result_str += (
-            f"- top 3 volume increase stock today: { [name for name in tmp.name] }\n\n"
-        )
-        result_str += tmp.to_markdown()
-        result_str += "\n\n"
-        tmp = price_change_table_pd.nsmallest(3, "vol_change%")
-        result_str += (
-            f"- top 3 volume decrease stock today: { [name for name in tmp.name] }\n\n"
-        )
-        result_str += tmp.to_markdown()
-        result_str += "\n\n"
-    except:
-        logger.info("no volume info")
-    result_str += "\n\nFull table\n\n"
-    # tmp = price_change_table_pd.drop(['name'],axis=1)
-    result_str += "### bullish stocks \n\n"
-    tmp = price_change_table_pd[price_change_table_pd.mid_term == "long"]
-    result_str += tmp.to_markdown()
-    result_str += "\n\n"
+{{ item.table }}
 
-    result_str += "### undefined \n\n"
-    tmp = price_change_table_pd[price_change_table_pd.mid_term == "undefined"]
-    result_str += tmp.to_markdown()
-    result_str += "\n\n"
+{% endfor %}
 
-    result_str += "### bearish stocks \n\n"
-    tmp = price_change_table_pd[price_change_table_pd.mid_term == "short"]
-    result_str += tmp.to_markdown()
-    result_str += "\n\n"
-    return result_str, price_change_table_pd
+### bullish stocks
+
+{{ bullish_table }}
+
+### undefined
+
+{{ undefined_table }}
+
+### bearish stocks
+
+{{ bearish_table }}
 
 
-def get_stock_name_dict(stock_list: str) -> Dict[str, str]:
+""").render(
+        summary=[
+            {
+                "title": "top 3 gainer today",
+                "names": [name for name in price_change_table_pd.nlargest(3, "1D%").name],
+                "table": price_change_table_pd.nlargest(3, "1D%").to_markdown(),
+            },
+            {
+                "title": "top 3 loser today",
+                "names": [name for name in price_change_table_pd.nsmallest(3, "1D%").name],
+                "table": price_change_table_pd.nsmallest(3, "1D%").to_markdown(),
+            },
+            {
+                "title": "top 3 volume increase stock today",
+                "names": [name for name in price_change_table_pd.nlargest(3, "vol_change%").name],
+                "table": price_change_table_pd.nlargest(3, "vol_change%").to_markdown(),
+            },
+            {
+                "title": "top 3 volume decrease stock today",
+                "names": [name for name in price_change_table_pd.nsmallest(3, "vol_change%").name],
+                "table": price_change_table_pd.nsmallest(3, "vol_change%").to_markdown(),
+            },
+        ],
+        bullish_table=price_change_table_pd[price_change_table_pd.mid_term == "long"].to_markdown(),
+        undefined_table=price_change_table_pd[price_change_table_pd.mid_term == "undefined"].to_markdown(
+        ),
+        bearish_table=price_change_table_pd[price_change_table_pd.mid_term == "short"].to_markdown(
+        ),
+    )    
+    return result_str
+
+
+def get_stock_name_dict(stock_list: str) -> Dict:
     """Convert usr config stock_list into stock_name_dict
 
     Args:
@@ -113,16 +122,13 @@ def get_stock_name_dict(stock_list: str) -> Dict[str, str]:
             result[item] = item
     return result
 
-
-def run_main_flow(args):
-    # process the main_cf.
+def read_input_args(args):
     main_cf = {}
     if args.config and os.path.isfile(args.config):
-        main_cf = algotrading.utils.read_dict_from_file(args.config)
+        main_cf = read_dict_from_file(args.config)
     if args.extra is not None:
         extra_dict = dict(args.extra)
-        for key in extra_dict:
-            value = extra_dict[key]
+        for key, value in extra_dict.items():
             if value == "False":
                 value = False
             elif value == "True":
@@ -130,111 +136,105 @@ def run_main_flow(args):
             main_cf[key] = value
 
     # set default value
-    if not "days" in main_cf:
-        main_cf["days"] = 250
-    else:
-        main_cf["days"] = int(main_cf["days"])
-    if not "sort_by" in main_cf:
-        main_cf["sort_by"] = "mid_term,short_term,5D%,1D%"
+    main_cf["days"] = int(main_cf.get("days", 250))
+    main_cf["sort_by"] = main_cf.get("sort_by", "mid_term,short_term,5D%,1D%")
+    main_cf["result_dir"] = main_cf.get("result_dir", os.path.abspath("./save_visualization"))
+    
+    return main_cf
 
-    if not "result_dir" in main_cf:
-        logger.warn("no result_dir on user input. user --extra result_dir to it")
-        main_cf["result_dir"] = os.path.abspath("./save_visualization")
-
+def save_config(main_cf):
     result_dir = main_cf.get("result_dir")
     if not os.path.isdir(result_dir):
         os.mkdir(result_dir)
-    """
-    if os.path.isdir(result_dir):
-        shutil.rmtree(result_dir)
-    os.mkdir(result_dir)
-    """
+
     output_config_path = os.path.join(result_dir, "input_config.yaml")
     with open(output_config_path, "w") as f:
         yaml.dump(main_cf, f)
         logger.info(f"save the config to file {output_config_path}")
         logger.info(f"next time user can rerun: at_run --config {output_config_path}")
 
+
+def create_stock_object(stock_list, stock_name, stock_ticker):
+    if stock_list == "fred":
+        return algotrading.fred.Fred(stock_name, stock_ticker)
+    return algotrading.stock.Stock(stock_name, stock_ticker)
+
+def plot_with_mav(stock_obj, main_cf):
+    days = main_cf["days"]
+    if days >= 500:
+        stock_obj.plot(mav=[60, 120, 240], image_name=stock_obj.name + "_long", **main_cf)
+    elif days >= 250:
+        stock_obj.plot(mav=[20, 60, 120], image_name=stock_obj.name + "_mid", **main_cf)
+    elif days >= 60:
+        stock_obj.plot(mav=[5, 10, 20], image_name=stock_obj.name + "_short", **main_cf)
+
+def remove_png_files():
+    # remove png files
+    images = os.listdir(".")
+    for item in images:
+        if item.endswith(".png"):
+            os.remove(os.path.join(".", item))
+
+def generate_output_file_name():
+    today_date = dt.datetime.now()
+    date_str = today_date.strftime("%m_%d_%Y")
+    return f"daily_report_{date_str}"
+
+def generate_md_file_path(result_dir, file_name):
+    return os.path.realpath(os.path.join(result_dir, file_name + ".md"))
+
+def generate_pdf_file_path(result_dir, file_name, report_format):
+    return os.path.realpath(os.path.join(result_dir, f"{file_name}.{report_format}"))
+
+
+def run_main_flow(args):
+    main_cf = read_input_args(args)
+    save_config(main_cf)
+    
     end = dt.datetime.now()
     stock_list = main_cf.get("stock_list", "shuping")
     stock_name_dict = get_stock_name_dict(stock_list)
     markdown_str = f"# Stock analysis report ({end})\n"
+    
     price_change_table = []
     plotting_dict = {}
     for stock_name in stock_name_dict:
-        if stock_list == "fred":
-            stock = algotrading.fred.Fred(stock_name, stock_name_dict[stock_name])
-        else:
-            stock = algotrading.stock.Stock(stock_name, stock_name_dict[stock_name])
+        stock = create_stock_object(stock_list, stock_name, stock_name_dict[stock_name])
         stock.read_data(**main_cf)
         stock.generate_more_data(days=14)
-
         price_change_info = stock.get_price_change_table()
         price_change_table.append(price_change_info)
-        # generate the plot if flag is true
-        # try:
-        if True:
-            if main_cf["days"] >= 500:
-                # main_cf['interval'] = 60
-                stock.plot(
-                    mav=[60, 120, 240], image_name=stock_name + "_long", **main_cf
-                )
-            elif main_cf["days"] >= 250:
-                # main_cf['interval'] = 20
-                print(main_cf)
-                stock.plot(mav=[20, 60, 120], image_name=stock_name + "_mid", **main_cf)
-            elif main_cf["days"] >= 60:
-                # main_cf['interval'] = 10
-                stock.plot(mav=[5, 10, 20], image_name=stock_name + "_short", **main_cf)
-        # except:
-        #    raise RuntimeError(f"fail to plot {stock.name}")
+        plot_with_mav(stock, main_cf)
         if main_cf.get("with_density", None) == "Yes":
-            stock.plot_density(result_dir)
+            stock.plot_density(main_cf["result_dir"])
         plotting_dict[stock_name] = stock.to_markdown()
 
-    # Add summary to report
-    try:
-        tmp_str, price_change_table_pd = generate_md_summary_from_changed_table(
-            price_change_table, main_cf["sort_by"]
-        )
-        if len(price_change_table) > 1:
-            markdown_str += tmp_str
+    markdown_str += generate_md_summary_from_changed_table(
+            price_change_table, main_cf["sort_by"])
 
-        price_change_table_pd.sort_values(["buy_score"], inplace=True, ascending=False)
-    except:
-        pass
-
-    # add single plot to report if flag is true
     for key_name in stock_name_dict:
         markdown_str += plotting_dict[key_name]
-        # markdown_str += price_change_table_pd.loc[ind].to_markdown()
 
     # Generate markdown
-    today_date = dt.datetime.now()
-    date_str = today_date.strftime("%m_%d_%Y")
-    output_file_name = f"daily_report_{date_str}"
-    md_file_path = os.path.realpath(os.path.join(result_dir, output_file_name + ".md"))
+    output_file_name = generate_output_file_name()
+    result_dir = main_cf.get("result_dir")
+    md_file_path = generate_md_file_path(result_dir, output_file_name)
+    report_format = main_cf.get("report_format", "pdf")
     with open(md_file_path, "w") as f:
         f.write(markdown_str)
 
     try:
         pdf_file_path = os.path.realpath(
-            os.path.join(result_dir, output_file_name + ".pdf")
+            os.path.join(result_dir, f"{output_file_name}.{report_format}")
         )
-        algotrading.utils.generate_pdf_from_markdown(
-            md_file_path, result_dir, pdf_file_path
+        generate_report_from_markdown(
+            md_file_path, result_dir, pdf_file_path, report_format
         )
-    except:
-        logging.warning(
-            "Can not generate the pdf format report.Please read the markdown instead."
-        )
+    except Exception as e:
+        raise RuntimeError(
+            f"Can not generate the {report_format} format report.Please read the markdown instead."
+        ) from e
 
-    # remove png files
-    images = os.listdir(".")
-    for item in images:
-        if item.endswith(".png"):
-            # os.remove(os.path.join(".", item))
-            pass
 
 
 def main():  # type: () -> None
