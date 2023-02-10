@@ -64,6 +64,7 @@ install_requires.extend([
     #'dataclasses',
     #'yfinance',
     'absl-py',
+    'tabulate',
 ])
 
 ################################################################################
