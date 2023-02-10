@@ -63,6 +63,7 @@ install_requires.extend([
     'jinja2',
     #'dataclasses',
     #'yfinance',
+    'absl-py',
 ])
 
 ################################################################################
