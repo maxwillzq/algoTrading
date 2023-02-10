@@ -42,16 +42,9 @@ def command_executor(cmd, stdout=None):
         raise Exception("Error running command: " + cmd)
     return True
 
-def generate_report_from_markdown(md_file_path, result_dir, output_file_path, report_format):
+def generate_report_from_markdown(md_file_path, result_dir, output_file_path, report_format, extra_args=[]):
     current_dir = os.getcwd()
     os.chdir(result_dir)
-    extra_args = []
-    if report_format == "pdf":
-        extra_args = [
-            "-V",
-            "geometry:margin=1.5cm",
-            "--pdf-engine=/Library/TeX/texbin/pdflatex",
-        ]
     try:
         output = pypandoc.convert_file(
             md_file_path,

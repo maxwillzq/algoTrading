@@ -8,6 +8,8 @@ import sys
 from collections import OrderedDict
 from datetime import timedelta
 from typing import Any, Dict, List
+import platform
+
 
 import algotrading
 import algotrading.utils
@@ -227,9 +229,16 @@ def run_main_flow(args):
         pdf_file_path = os.path.realpath(
             os.path.join(result_dir, f"{output_file_name}.{report_format}")
         )
+        extra_args = []
+        # use Macbook default pdflatex here
+        if report_format == "pdf" if platform.system() == "Darwin":
+            extra_args = [
+                "-V",
+                "geometry:margin=1.5cm",
+                "--pdf-engine=/Library/TeX/texbin/pdflatex",
+            ]
         generate_report_from_markdown(
-            md_file_path, result_dir, pdf_file_path, report_format
-        )
+            md_file_path, result_dir, pdf_file_path, report_format, extra_args=extra_args)
     except Exception as e:
         raise RuntimeError(
             f"Can not generate the {report_format} format report.Please read the markdown instead."
