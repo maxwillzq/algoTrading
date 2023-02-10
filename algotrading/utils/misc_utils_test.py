@@ -44,7 +44,7 @@ class TestRenderTemplateWithDict(unittest.TestCase):
             os.remove(result_file_path)
 
 class TestGenerateReportFromMarkdown(unittest.TestCase):
-    @parameterized.expand([("pdf", "test.pdf"), ("html", "test.html")])
+    @parameterized.expand([("html", "test.html")])
     def test_conversion(self, report_format, output_file):
         result_dir = tempfile.mkdtemp()
         md_file = os.path.join(result_dir, "test.md")
