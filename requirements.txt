@@ -1,0 +1,11 @@
+absl-py
+pandas
+yfinance
+DateTime
+Jinja2
+mplfinance
+pytest
+PyYAML
+scikit-learn
+scipy
+seaborn
