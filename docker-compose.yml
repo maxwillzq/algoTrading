@@ -8,4 +8,4 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-    command: ["sh", "-c", "python setup.py develop --user && python -m pytest -v"]
+    command: ["sh", "-c", "python setup.py develop --user  && python /app/algotrading/scripts/draw_single_plot.py --extra stock_list=shuping --extra report_format=html"]
