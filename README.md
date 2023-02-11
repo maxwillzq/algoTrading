@@ -66,8 +66,10 @@ jupyter notebook
 
 ### Docker env
 
-You can create the docker image based on the docker file
+You can create the docker image based on the docker file.
+
+Or use the docker composite 
 
 ```
-docker run -it -v <source_code>:/app algotrading:latest /bin/bash
+docker-compose up --build
 ```
