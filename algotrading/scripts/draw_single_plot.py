@@ -231,7 +231,7 @@ def run_main_flow(args):
         )
         extra_args = []
         # use Macbook default pdflatex here
-        if report_format == "pdf" if platform.system() == "Darwin":
+        if report_format == "pdf" and platform.system() == "Darwin":
             extra_args = [
                 "-V",
                 "geometry:margin=1.5cm",

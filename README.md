@@ -63,3 +63,11 @@ Assume you have the python virtual enviroment whose name is develop_py.
 python -m ipykernel install --user --name=develop_py
 jupyter notebook
 ```
+
+### Docker env
+
+You can create the docker image based on the docker file
+
+```
+docker run -it -v <source_code>:/app algotrading:latest /bin/bash
+```

@@ -1,0 +1,11 @@
+version: '3.4'
+
+services:
+  algotrading:
+    image: algotrading
+    volumes:
+      - /Users/johnqiangzhang/Documents/open_source/algoTrading:/app
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command: ["sh", "-c", "python setup.py develop --user && python -m pytest -v"]
